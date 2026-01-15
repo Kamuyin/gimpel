@@ -1,0 +1,747 @@
+
+package gimpelv1
+
+import (
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	reflect "reflect"
+	sync "sync"
+	unsafe "unsafe"
+)
+
+const (
+	_ = protoimpl.EnforceVersion(20 - protoimpl.MinVersion)
+	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
+)
+
+type ListenerSpec struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Protocol        string                 `protobuf:"bytes,2,opt,name=protocol,proto3" json:"protocol,omitempty"`
+	Port            uint32                 `protobuf:"varint,3,opt,name=port,proto3" json:"port,omitempty"`
+	ModuleId        string                 `protobuf:"bytes,4,opt,name=module_id,json=moduleId,proto3" json:"module_id,omitempty"`
+	HighInteraction bool                   `protobuf:"varint,5,opt,name=high_interaction,json=highInteraction,proto3" json:"high_interaction,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ListenerSpec) Reset() {
+	*x = ListenerSpec{}
+	mi := &file_v1_agent_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListenerSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListenerSpec) ProtoMessage() {}
+
+func (x *ListenerSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_v1_agent_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (*ListenerSpec) Descriptor() ([]byte, []int) {
+	return file_v1_agent_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *ListenerSpec) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ListenerSpec) GetProtocol() string {
+	if x != nil {
+		return x.Protocol
+	}
+	return ""
+}
+
+func (x *ListenerSpec) GetPort() uint32 {
+	if x != nil {
+		return x.Port
+	}
+	return 0
+}
+
+func (x *ListenerSpec) GetModuleId() string {
+	if x != nil {
+		return x.ModuleId
+	}
+	return ""
+}
+
+func (x *ListenerSpec) GetHighInteraction() bool {
+	if x != nil {
+		return x.HighInteraction
+	}
+	return false
+}
+
+type ModuleSpec struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Image         string                 `protobuf:"bytes,3,opt,name=image,proto3" json:"image,omitempty"`
+	Env           map[string]string      `protobuf:"bytes,4,rep,name=env,proto3" json:"env,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Listeners     []*ListenerSpec        `protobuf:"bytes,5,rep,name=listeners,proto3" json:"listeners,omitempty"`
+	Signature     []byte                 `protobuf:"bytes,6,opt,name=signature,proto3" json:"signature,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ModuleSpec) Reset() {
+	*x = ModuleSpec{}
+	mi := &file_v1_agent_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ModuleSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ModuleSpec) ProtoMessage() {}
+
+func (x *ModuleSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_v1_agent_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (*ModuleSpec) Descriptor() ([]byte, []int) {
+	return file_v1_agent_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *ModuleSpec) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ModuleSpec) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ModuleSpec) GetImage() string {
+	if x != nil {
+		return x.Image
+	}
+	return ""
+}
+
+func (x *ModuleSpec) GetEnv() map[string]string {
+	if x != nil {
+		return x.Env
+	}
+	return nil
+}
+
+func (x *ModuleSpec) GetListeners() []*ListenerSpec {
+	if x != nil {
+		return x.Listeners
+	}
+	return nil
+}
+
+func (x *ModuleSpec) GetSignature() []byte {
+	if x != nil {
+		return x.Signature
+	}
+	return nil
+}
+
+type AgentConfig struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	Version              string                 `protobuf:"bytes,1,opt,name=version,proto3" json:"version,omitempty"`
+	Modules              []*ModuleSpec          `protobuf:"bytes,2,rep,name=modules,proto3" json:"modules,omitempty"`
+	HeartbeatIntervalMs  int64                  `protobuf:"varint,3,opt,name=heartbeat_interval_ms,json=heartbeatIntervalMs,proto3" json:"heartbeat_interval_ms,omitempty"`
+	EventFlushIntervalMs int64                  `protobuf:"varint,4,opt,name=event_flush_interval_ms,json=eventFlushIntervalMs,proto3" json:"event_flush_interval_ms,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *AgentConfig) Reset() {
+	*x = AgentConfig{}
+	mi := &file_v1_agent_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AgentConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AgentConfig) ProtoMessage() {}
+
+func (x *AgentConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_v1_agent_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (*AgentConfig) Descriptor() ([]byte, []int) {
+	return file_v1_agent_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *AgentConfig) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *AgentConfig) GetModules() []*ModuleSpec {
+	if x != nil {
+		return x.Modules
+	}
+	return nil
+}
+
+func (x *AgentConfig) GetHeartbeatIntervalMs() int64 {
+	if x != nil {
+		return x.HeartbeatIntervalMs
+	}
+	return 0
+}
+
+func (x *AgentConfig) GetEventFlushIntervalMs() int64 {
+	if x != nil {
+		return x.EventFlushIntervalMs
+	}
+	return 0
+}
+
+type RegisterRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	Hostname      string                 `protobuf:"bytes,2,opt,name=hostname,proto3" json:"hostname,omitempty"`
+	PublicIps     []string               `protobuf:"bytes,3,rep,name=public_ips,json=publicIps,proto3" json:"public_ips,omitempty"`
+	Os            string                 `protobuf:"bytes,4,opt,name=os,proto3" json:"os,omitempty"`
+	Arch          string                 `protobuf:"bytes,5,opt,name=arch,proto3" json:"arch,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RegisterRequest) Reset() {
+	*x = RegisterRequest{}
+	mi := &file_v1_agent_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RegisterRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RegisterRequest) ProtoMessage() {}
+
+func (x *RegisterRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_v1_agent_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (*RegisterRequest) Descriptor() ([]byte, []int) {
+	return file_v1_agent_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *RegisterRequest) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+func (x *RegisterRequest) GetHostname() string {
+	if x != nil {
+		return x.Hostname
+	}
+	return ""
+}
+
+func (x *RegisterRequest) GetPublicIps() []string {
+	if x != nil {
+		return x.PublicIps
+	}
+	return nil
+}
+
+func (x *RegisterRequest) GetOs() string {
+	if x != nil {
+		return x.Os
+	}
+	return ""
+}
+
+func (x *RegisterRequest) GetArch() string {
+	if x != nil {
+		return x.Arch
+	}
+	return ""
+}
+
+type RegisterResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	Certificate   []byte                 `protobuf:"bytes,2,opt,name=certificate,proto3" json:"certificate,omitempty"`
+	PrivateKey    []byte                 `protobuf:"bytes,3,opt,name=private_key,json=privateKey,proto3" json:"private_key,omitempty"`
+	CaCertificate []byte                 `protobuf:"bytes,4,opt,name=ca_certificate,json=caCertificate,proto3" json:"ca_certificate,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RegisterResponse) Reset() {
+	*x = RegisterResponse{}
+	mi := &file_v1_agent_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RegisterResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RegisterResponse) ProtoMessage() {}
+
+func (x *RegisterResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_v1_agent_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (*RegisterResponse) Descriptor() ([]byte, []int) {
+	return file_v1_agent_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *RegisterResponse) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+func (x *RegisterResponse) GetCertificate() []byte {
+	if x != nil {
+		return x.Certificate
+	}
+	return nil
+}
+
+func (x *RegisterResponse) GetPrivateKey() []byte {
+	if x != nil {
+		return x.PrivateKey
+	}
+	return nil
+}
+
+func (x *RegisterResponse) GetCaCertificate() []byte {
+	if x != nil {
+		return x.CaCertificate
+	}
+	return nil
+}
+
+type GetConfigRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	AgentId        string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	CurrentVersion string                 `protobuf:"bytes,2,opt,name=current_version,json=currentVersion,proto3" json:"current_version,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *GetConfigRequest) Reset() {
+	*x = GetConfigRequest{}
+	mi := &file_v1_agent_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetConfigRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetConfigRequest) ProtoMessage() {}
+
+func (x *GetConfigRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_v1_agent_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (*GetConfigRequest) Descriptor() ([]byte, []int) {
+	return file_v1_agent_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *GetConfigRequest) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+func (x *GetConfigRequest) GetCurrentVersion() string {
+	if x != nil {
+		return x.CurrentVersion
+	}
+	return ""
+}
+
+type GetConfigResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Updated       bool                   `protobuf:"varint,1,opt,name=updated,proto3" json:"updated,omitempty"`
+	Config        *AgentConfig           `protobuf:"bytes,2,opt,name=config,proto3" json:"config,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetConfigResponse) Reset() {
+	*x = GetConfigResponse{}
+	mi := &file_v1_agent_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetConfigResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetConfigResponse) ProtoMessage() {}
+
+func (x *GetConfigResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_v1_agent_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (*GetConfigResponse) Descriptor() ([]byte, []int) {
+	return file_v1_agent_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *GetConfigResponse) GetUpdated() bool {
+	if x != nil {
+		return x.Updated
+	}
+	return false
+}
+
+func (x *GetConfigResponse) GetConfig() *AgentConfig {
+	if x != nil {
+		return x.Config
+	}
+	return nil
+}
+
+type HISessionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	ListenerId    string                 `protobuf:"bytes,2,opt,name=listener_id,json=listenerId,proto3" json:"listener_id,omitempty"`
+	SourceIp      string                 `protobuf:"bytes,3,opt,name=source_ip,json=sourceIp,proto3" json:"source_ip,omitempty"`
+	SourcePort    uint32                 `protobuf:"varint,4,opt,name=source_port,json=sourcePort,proto3" json:"source_port,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HISessionRequest) Reset() {
+	*x = HISessionRequest{}
+	mi := &file_v1_agent_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HISessionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HISessionRequest) ProtoMessage() {}
+
+func (x *HISessionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_v1_agent_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (*HISessionRequest) Descriptor() ([]byte, []int) {
+	return file_v1_agent_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *HISessionRequest) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+func (x *HISessionRequest) GetListenerId() string {
+	if x != nil {
+		return x.ListenerId
+	}
+	return ""
+}
+
+func (x *HISessionRequest) GetSourceIp() string {
+	if x != nil {
+		return x.SourceIp
+	}
+	return ""
+}
+
+func (x *HISessionRequest) GetSourcePort() uint32 {
+	if x != nil {
+		return x.SourcePort
+	}
+	return 0
+}
+
+type HISessionResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	SessionId       string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	SandboxEndpoint string                 `protobuf:"bytes,2,opt,name=sandbox_endpoint,json=sandboxEndpoint,proto3" json:"sandbox_endpoint,omitempty"`
+	TunnelKey       []byte                 `protobuf:"bytes,3,opt,name=tunnel_key,json=tunnelKey,proto3" json:"tunnel_key,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *HISessionResponse) Reset() {
+	*x = HISessionResponse{}
+	mi := &file_v1_agent_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HISessionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HISessionResponse) ProtoMessage() {}
+
+func (x *HISessionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_v1_agent_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (*HISessionResponse) Descriptor() ([]byte, []int) {
+	return file_v1_agent_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *HISessionResponse) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *HISessionResponse) GetSandboxEndpoint() string {
+	if x != nil {
+		return x.SandboxEndpoint
+	}
+	return ""
+}
+
+func (x *HISessionResponse) GetTunnelKey() []byte {
+	if x != nil {
+		return x.TunnelKey
+	}
+	return nil
+}
+
+var File_v1_agent_proto protoreflect.FileDescriptor
+
+const file_v1_agent_proto_rawDesc = "" +
+	"\n" +
+	"\x0ev1/agent.proto\x12\tgimpel.v1\x1a\x0fv1/common.proto\"\x96\x01\n" +
+	"\fListenerSpec\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
+	"\bprotocol\x18\x02 \x01(\tR\bprotocol\x12\x12\n" +
+	"\x04port\x18\x03 \x01(\rR\x04port\x12\x1b\n" +
+	"\tmodule_id\x18\x04 \x01(\tR\bmoduleId\x12)\n" +
+	"\x10high_interaction\x18\x05 \x01(\bR\x0fhighInteraction\"\x85\x02\n" +
+	"\n" +
+	"ModuleSpec\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
+	"\x05image\x18\x03 \x01(\tR\x05image\x120\n" +
+	"\x03env\x18\x04 \x03(\v2\x1e.gimpel.v1.ModuleSpec.EnvEntryR\x03env\x125\n" +
+	"\tlisteners\x18\x05 \x03(\v2\x17.gimpel.v1.ListenerSpecR\tlisteners\x12\x1c\n" +
+	"\tsignature\x18\x06 \x01(\fR\tsignature\x1a6\n" +
+	"\bEnvEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xc3\x01\n" +
+	"\vAgentConfig\x12\x18\n" +
+	"\aversion\x18\x01 \x01(\tR\aversion\x12/\n" +
+	"\amodules\x18\x02 \x03(\v2\x15.gimpel.v1.ModuleSpecR\amodules\x122\n" +
+	"\x15heartbeat_interval_ms\x18\x03 \x01(\x03R\x13heartbeatIntervalMs\x125\n" +
+	"\x17event_flush_interval_ms\x18\x04 \x01(\x03R\x14eventFlushIntervalMs\"\x86\x01\n" +
+	"\x0fRegisterRequest\x12\x14\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\x12\x1a\n" +
+	"\bhostname\x18\x02 \x01(\tR\bhostname\x12\x1d\n" +
+	"\n" +
+	"public_ips\x18\x03 \x03(\tR\tpublicIps\x12\x0e\n" +
+	"\x02os\x18\x04 \x01(\tR\x02os\x12\x12\n" +
+	"\x04arch\x18\x05 \x01(\tR\x04arch\"\x97\x01\n" +
+	"\x10RegisterResponse\x12\x19\n" +
+	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12 \n" +
+	"\vcertificate\x18\x02 \x01(\fR\vcertificate\x12\x1f\n" +
+	"\vprivate_key\x18\x03 \x01(\fR\n" +
+	"privateKey\x12%\n" +
+	"\x0eca_certificate\x18\x04 \x01(\fR\rcaCertificate\"V\n" +
+	"\x10GetConfigRequest\x12\x19\n" +
+	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12'\n" +
+	"\x0fcurrent_version\x18\x02 \x01(\tR\x0ecurrentVersion\"]\n" +
+	"\x11GetConfigResponse\x12\x18\n" +
+	"\aupdated\x18\x01 \x01(\bR\aupdated\x12.\n" +
+	"\x06config\x18\x02 \x01(\v2\x16.gimpel.v1.AgentConfigR\x06config\"\x8c\x01\n" +
+	"\x10HISessionRequest\x12\x19\n" +
+	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x1f\n" +
+	"\vlistener_id\x18\x02 \x01(\tR\n" +
+	"listenerId\x12\x1b\n" +
+	"\tsource_ip\x18\x03 \x01(\tR\bsourceIp\x12\x1f\n" +
+	"\vsource_port\x18\x04 \x01(\rR\n" +
+	"sourcePort\"|\n" +
+	"\x11HISessionResponse\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12)\n" +
+	"\x10sandbox_endpoint\x18\x02 \x01(\tR\x0fsandboxEndpoint\x12\x1d\n" +
+	"\n" +
+	"tunnel_key\x18\x03 \x01(\fR\ttunnelKey2\xb2\x02\n" +
+	"\fAgentControl\x12C\n" +
+	"\bRegister\x12\x1a.gimpel.v1.RegisterRequest\x1a\x1b.gimpel.v1.RegisterResponse\x12F\n" +
+	"\tGetConfig\x12\x1b.gimpel.v1.GetConfigRequest\x1a\x1c.gimpel.v1.GetConfigResponse\x12F\n" +
+	"\tHeartbeat\x12\x1b.gimpel.v1.HeartbeatRequest\x1a\x1c.gimpel.v1.HeartbeatResponse\x12M\n" +
+	"\x10RequestHISession\x12\x1b.gimpel.v1.HISessionRequest\x1a\x1c.gimpel.v1.HISessionResponseB5Z3github.com/nohaxxjustlags/gimpel/api/go/v1;gimpelv1b\x06proto3"
+
+var (
+	file_v1_agent_proto_rawDescOnce sync.Once
+	file_v1_agent_proto_rawDescData []byte
+)
+
+func file_v1_agent_proto_rawDescGZIP() []byte {
+	file_v1_agent_proto_rawDescOnce.Do(func() {
+		file_v1_agent_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_v1_agent_proto_rawDesc), len(file_v1_agent_proto_rawDesc)))
+	})
+	return file_v1_agent_proto_rawDescData
+}
+
+var file_v1_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_v1_agent_proto_goTypes = []any{
+	(*ListenerSpec)(nil),
+	(*ModuleSpec)(nil),
+	(*AgentConfig)(nil),
+	(*RegisterRequest)(nil),
+	(*RegisterResponse)(nil),
+	(*GetConfigRequest)(nil),
+	(*GetConfigResponse)(nil),
+	(*HISessionRequest)(nil),
+	(*HISessionResponse)(nil),
+	nil,
+	(*HeartbeatRequest)(nil),
+	(*HeartbeatResponse)(nil),
+}
+var file_v1_agent_proto_depIdxs = []int32{
+	9,
+	0,
+	1,
+	2,
+	3,
+	5,
+	10,
+	7,
+	4,
+	6,
+	11,
+	8,
+	8,
+	4,
+	4,
+	4,
+	0,
+}
+
+func init() { file_v1_agent_proto_init() }
+func file_v1_agent_proto_init() {
+	if File_v1_agent_proto != nil {
+		return
+	}
+	file_v1_common_proto_init()
+	type x struct{}
+	out := protoimpl.TypeBuilder{
+		File: protoimpl.DescBuilder{
+			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_v1_agent_proto_rawDesc), len(file_v1_agent_proto_rawDesc)),
+			NumEnums:      0,
+			NumMessages:   10,
+			NumExtensions: 0,
+			NumServices:   1,
+		},
+		GoTypes:           file_v1_agent_proto_goTypes,
+		DependencyIndexes: file_v1_agent_proto_depIdxs,
+		MessageInfos:      file_v1_agent_proto_msgTypes,
+	}.Build()
+	File_v1_agent_proto = out.File
+	file_v1_agent_proto_goTypes = nil
+	file_v1_agent_proto_depIdxs = nil
+}

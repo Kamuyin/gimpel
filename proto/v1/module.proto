@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package gimpel.v1;
+
+option go_package = "github.com/nohaxxjustlags/gimpel/api/go/v1;gimpelv1";
+
+message ConnectionInfo {
+  string connection_id = 1;
+  string source_ip = 2;
+  uint32 source_port = 3;
+  string dest_ip = 4;
+  uint32 dest_port = 5;
+  string protocol = 6;
+  int64 timestamp_ns = 7;
+}
+
+message HandleConnectionRequest {
+  ConnectionInfo connection = 1;
+}
+
+message HandleConnectionResponse {
+  bool accepted = 1;
+  int32 data_port = 2;
+}
+
+message HealthCheckRequest {}
+
+message HealthCheckResponse {
+  bool healthy = 1;
+  string status = 2;
+  map<string, string> metadata = 3;
+}
+
+service ModuleService {
+  rpc HandleConnection(HandleConnectionRequest) returns (HandleConnectionResponse);
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}

@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+package gimpel.v1;
+
+option go_package = "github.com/nohaxxjustlags/gimpel/api/go/v1;gimpelv1";
+
+import "v1/common.proto";
+
+message ListenerSpec {
+  string id = 1;
+  string protocol = 2;
+  uint32 port = 3;
+  string module_id = 4;
+  bool high_interaction = 5;
+}
+
+message ModuleSpec {
+  string id = 1;
+  string name = 2;
+  string image = 3;
+  map<string, string> env = 4;
+  repeated ListenerSpec listeners = 5;
+  bytes signature = 6;
+}
+
+message AgentConfig {
+  string version = 1;
+  repeated ModuleSpec modules = 2;
+  int64 heartbeat_interval_ms = 3;
+  int64 event_flush_interval_ms = 4;
+}
+
+message RegisterRequest {
+  string token = 1;
+  string hostname = 2;
+  repeated string public_ips = 3;
+  string os = 4;
+  string arch = 5;
+}
+
+message RegisterResponse {
+  string agent_id = 1;
+  bytes certificate = 2;
+  bytes private_key = 3;
+  bytes ca_certificate = 4;
+}
+
+message GetConfigRequest {
+  string agent_id = 1;
+  string current_version = 2;
+}
+
+message GetConfigResponse {
+  bool updated = 1;
+  AgentConfig config = 2;
+}
+
+message HISessionRequest {
+  string agent_id = 1;
+  string listener_id = 2;
+  string source_ip = 3;
+  uint32 source_port = 4;
+}
+
+message HISessionResponse {
+  string session_id = 1;
+  string sandbox_endpoint = 2;
+  bytes tunnel_key = 3;
+}
+
+service AgentControl {
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc GetConfig(GetConfigRequest) returns (GetConfigResponse);
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+  rpc RequestHISession(HISessionRequest) returns (HISessionResponse);
+}

@@ -1,0 +1,23 @@
+agent_id: ""
+data_dir: "./test_data/agent"
+heartbeat_interval: 5s
+registration_token: "test-token-12345"
+
+control_plane:
+  address: "localhost:9090"
+
+gateway:
+  address: "localhost:9091"
+  flush_interval: 2s
+  batch_size: 10
+
+modules:
+  - id: ssh-honeypot
+    image: "./ssh-honeypot.exe"
+    socket_path: "./test_data/agent/ssh-honeypot.sock"
+    env:
+      SSH_PORT: "2222"
+    listeners:
+      - id: ssh-2222
+        protocol: tcp
+        port: 2222

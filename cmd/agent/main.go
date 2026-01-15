@@ -2,47 +2,60 @@ package main
 
 import (
 	"context"
+	"flag"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 
 	"gimpel/internal/agent"
 	"gimpel/internal/agent/config"
 )
 
 func main() {
-	log := logrus.New()
-	log.SetFormatter(&logrus.TextFormatter{
+	configPath := flag.String("config", "/etc/gimpel/agent.yaml", "path to config file")
+	debug := flag.Bool("debug", false, "enable debug logging")
+	flag.Parse()
+
+	if *debug {
+		log.SetLevel(log.DebugLevel)
+	}
+	log.SetFormatter(&log.TextFormatter{
 		FullTimestamp: true,
 	})
 
-	cfg, err := config.Load()
+	cfg, err := config.Load(*configPath)
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		log.WithError(err).Fatal("failed to load config")
 	}
 
-	lvl, err := logrus.ParseLevel(cfg.LogLevel)
-	if err == nil {
-		log.SetLevel(lvl)
-	} else {
-		log.Warnf("Invalid log level '%s', defaulting to info", cfg.LogLevel)
-	}
-
-	a, err := agent.New(cfg, log)
+	a, err := agent.New(cfg)
 	if err != nil {
-		log.Fatalf("Failed to create agent: %v", err)
+		log.WithError(err).Fatal("failed to create agent")
 	}
 
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer cancel()
+	ctx, cancel := context.WithCancel(context.Background())
 
-	if err := a.Run(ctx); err != nil {
-		if err != context.Canceled {
-			log.Errorf("Agent stopped with error: %v", err)
-			os.Exit(1)
-		}
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		sig := <-sigCh
+		log.WithField("signal", sig).Info("received shutdown signal")
+		cancel()
+	}()
+
+	if err := a.Run(ctx); err != nil && err != context.Canceled {
+		log.WithError(err).Error("agent run failed")
 	}
-	log.Info("Agent shutdown complete")
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30)
+	defer shutdownCancel()
+
+	if err := a.Shutdown(shutdownCtx); err != nil {
+		log.WithError(err).Error("shutdown error")
+	}
+
+	log.Info("agent stopped")
 }

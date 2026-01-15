@@ -1,0 +1,476 @@
+
+package gimpelv1
+
+import (
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	reflect "reflect"
+	sync "sync"
+	unsafe "unsafe"
+)
+
+const (
+	_ = protoimpl.EnforceVersion(20 - protoimpl.MinVersion)
+	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
+)
+
+type EventType int32
+
+const (
+	EventType_EVENT_TYPE_UNSPECIFIED      EventType = 0
+	EventType_EVENT_TYPE_CONNECTION_OPEN  EventType = 1
+	EventType_EVENT_TYPE_CONNECTION_CLOSE EventType = 2
+	EventType_EVENT_TYPE_DATA_RECEIVED    EventType = 3
+	EventType_EVENT_TYPE_DATA_SENT        EventType = 4
+	EventType_EVENT_TYPE_AUTH_ATTEMPT     EventType = 5
+	EventType_EVENT_TYPE_COMMAND          EventType = 6
+	EventType_EVENT_TYPE_FILE_ACCESS      EventType = 7
+	EventType_EVENT_TYPE_MALWARE_DETECTED EventType = 8
+	EventType_EVENT_TYPE_CUSTOM           EventType = 100
+)
+
+var (
+	EventType_name = map[int32]string{
+		0:   "EVENT_TYPE_UNSPECIFIED",
+		1:   "EVENT_TYPE_CONNECTION_OPEN",
+		2:   "EVENT_TYPE_CONNECTION_CLOSE",
+		3:   "EVENT_TYPE_DATA_RECEIVED",
+		4:   "EVENT_TYPE_DATA_SENT",
+		5:   "EVENT_TYPE_AUTH_ATTEMPT",
+		6:   "EVENT_TYPE_COMMAND",
+		7:   "EVENT_TYPE_FILE_ACCESS",
+		8:   "EVENT_TYPE_MALWARE_DETECTED",
+		100: "EVENT_TYPE_CUSTOM",
+	}
+	EventType_value = map[string]int32{
+		"EVENT_TYPE_UNSPECIFIED":      0,
+		"EVENT_TYPE_CONNECTION_OPEN":  1,
+		"EVENT_TYPE_CONNECTION_CLOSE": 2,
+		"EVENT_TYPE_DATA_RECEIVED":    3,
+		"EVENT_TYPE_DATA_SENT":        4,
+		"EVENT_TYPE_AUTH_ATTEMPT":     5,
+		"EVENT_TYPE_COMMAND":          6,
+		"EVENT_TYPE_FILE_ACCESS":      7,
+		"EVENT_TYPE_MALWARE_DETECTED": 8,
+		"EVENT_TYPE_CUSTOM":           100,
+	}
+)
+
+func (x EventType) Enum() *EventType {
+	p := new(EventType)
+	*p = x
+	return p
+}
+
+func (x EventType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (EventType) Descriptor() protoreflect.EnumDescriptor {
+	return file_v1_telemetry_proto_enumTypes[0].Descriptor()
+}
+
+func (EventType) Type() protoreflect.EnumType {
+	return &file_v1_telemetry_proto_enumTypes[0]
+}
+
+func (x EventType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+func (EventType) EnumDescriptor() ([]byte, []int) {
+	return file_v1_telemetry_proto_rawDescGZIP(), []int{0}
+}
+
+type Event struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	EventId       string                 `protobuf:"bytes,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	AgentId       string                 `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	ModuleId      string                 `protobuf:"bytes,3,opt,name=module_id,json=moduleId,proto3" json:"module_id,omitempty"`
+	SessionId     string                 `protobuf:"bytes,4,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	Type          EventType              `protobuf:"varint,5,opt,name=type,proto3,enum=gimpel.v1.EventType" json:"type,omitempty"`
+	TimestampNs   int64                  `protobuf:"varint,6,opt,name=timestamp_ns,json=timestampNs,proto3" json:"timestamp_ns,omitempty"`
+	SourceIp      string                 `protobuf:"bytes,10,opt,name=source_ip,json=sourceIp,proto3" json:"source_ip,omitempty"`
+	SourcePort    uint32                 `protobuf:"varint,11,opt,name=source_port,json=sourcePort,proto3" json:"source_port,omitempty"`
+	DestIp        string                 `protobuf:"bytes,12,opt,name=dest_ip,json=destIp,proto3" json:"dest_ip,omitempty"`
+	DestPort      uint32                 `protobuf:"varint,13,opt,name=dest_port,json=destPort,proto3" json:"dest_port,omitempty"`
+	Protocol      string                 `protobuf:"bytes,14,opt,name=protocol,proto3" json:"protocol,omitempty"`
+	Labels        map[string]string      `protobuf:"bytes,20,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Payload       []byte                 `protobuf:"bytes,21,opt,name=payload,proto3" json:"payload,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Event) Reset() {
+	*x = Event{}
+	mi := &file_v1_telemetry_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Event) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Event) ProtoMessage() {}
+
+func (x *Event) ProtoReflect() protoreflect.Message {
+	mi := &file_v1_telemetry_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (*Event) Descriptor() ([]byte, []int) {
+	return file_v1_telemetry_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *Event) GetEventId() string {
+	if x != nil {
+		return x.EventId
+	}
+	return ""
+}
+
+func (x *Event) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+func (x *Event) GetModuleId() string {
+	if x != nil {
+		return x.ModuleId
+	}
+	return ""
+}
+
+func (x *Event) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *Event) GetType() EventType {
+	if x != nil {
+		return x.Type
+	}
+	return EventType_EVENT_TYPE_UNSPECIFIED
+}
+
+func (x *Event) GetTimestampNs() int64 {
+	if x != nil {
+		return x.TimestampNs
+	}
+	return 0
+}
+
+func (x *Event) GetSourceIp() string {
+	if x != nil {
+		return x.SourceIp
+	}
+	return ""
+}
+
+func (x *Event) GetSourcePort() uint32 {
+	if x != nil {
+		return x.SourcePort
+	}
+	return 0
+}
+
+func (x *Event) GetDestIp() string {
+	if x != nil {
+		return x.DestIp
+	}
+	return ""
+}
+
+func (x *Event) GetDestPort() uint32 {
+	if x != nil {
+		return x.DestPort
+	}
+	return 0
+}
+
+func (x *Event) GetProtocol() string {
+	if x != nil {
+		return x.Protocol
+	}
+	return ""
+}
+
+func (x *Event) GetLabels() map[string]string {
+	if x != nil {
+		return x.Labels
+	}
+	return nil
+}
+
+func (x *Event) GetPayload() []byte {
+	if x != nil {
+		return x.Payload
+	}
+	return nil
+}
+
+type EventBatch struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	Events        []*Event               `protobuf:"bytes,2,rep,name=events,proto3" json:"events,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EventBatch) Reset() {
+	*x = EventBatch{}
+	mi := &file_v1_telemetry_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EventBatch) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EventBatch) ProtoMessage() {}
+
+func (x *EventBatch) ProtoReflect() protoreflect.Message {
+	mi := &file_v1_telemetry_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (*EventBatch) Descriptor() ([]byte, []int) {
+	return file_v1_telemetry_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *EventBatch) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+func (x *EventBatch) GetEvents() []*Event {
+	if x != nil {
+		return x.Events
+	}
+	return nil
+}
+
+type StreamEventsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Batch         *EventBatch            `protobuf:"bytes,1,opt,name=batch,proto3" json:"batch,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StreamEventsRequest) Reset() {
+	*x = StreamEventsRequest{}
+	mi := &file_v1_telemetry_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StreamEventsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StreamEventsRequest) ProtoMessage() {}
+
+func (x *StreamEventsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_v1_telemetry_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (*StreamEventsRequest) Descriptor() ([]byte, []int) {
+	return file_v1_telemetry_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *StreamEventsRequest) GetBatch() *EventBatch {
+	if x != nil {
+		return x.Batch
+	}
+	return nil
+}
+
+type StreamEventsResponse struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	AcceptedCount  int64                  `protobuf:"varint,1,opt,name=accepted_count,json=acceptedCount,proto3" json:"accepted_count,omitempty"`
+	FailedEventIds []string               `protobuf:"bytes,2,rep,name=failed_event_ids,json=failedEventIds,proto3" json:"failed_event_ids,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *StreamEventsResponse) Reset() {
+	*x = StreamEventsResponse{}
+	mi := &file_v1_telemetry_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StreamEventsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StreamEventsResponse) ProtoMessage() {}
+
+func (x *StreamEventsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_v1_telemetry_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (*StreamEventsResponse) Descriptor() ([]byte, []int) {
+	return file_v1_telemetry_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *StreamEventsResponse) GetAcceptedCount() int64 {
+	if x != nil {
+		return x.AcceptedCount
+	}
+	return 0
+}
+
+func (x *StreamEventsResponse) GetFailedEventIds() []string {
+	if x != nil {
+		return x.FailedEventIds
+	}
+	return nil
+}
+
+var File_v1_telemetry_proto protoreflect.FileDescriptor
+
+const file_v1_telemetry_proto_rawDesc = "" +
+	"\n" +
+	"\x12v1/telemetry.proto\x12\tgimpel.v1\"\xe1\x03\n" +
+	"\x05Event\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\tR\aeventId\x12\x19\n" +
+	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x1b\n" +
+	"\tmodule_id\x18\x03 \x01(\tR\bmoduleId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x04 \x01(\tR\tsessionId\x12(\n" +
+	"\x04type\x18\x05 \x01(\x0e2\x14.gimpel.v1.EventTypeR\x04type\x12!\n" +
+	"\ftimestamp_ns\x18\x06 \x01(\x03R\vtimestampNs\x12\x1b\n" +
+	"\tsource_ip\x18\n" +
+	" \x01(\tR\bsourceIp\x12\x1f\n" +
+	"\vsource_port\x18\v \x01(\rR\n" +
+	"sourcePort\x12\x17\n" +
+	"\adest_ip\x18\f \x01(\tR\x06destIp\x12\x1b\n" +
+	"\tdest_port\x18\r \x01(\rR\bdestPort\x12\x1a\n" +
+	"\bprotocol\x18\x0e \x01(\tR\bprotocol\x124\n" +
+	"\x06labels\x18\x14 \x03(\v2\x1c.gimpel.v1.Event.LabelsEntryR\x06labels\x12\x18\n" +
+	"\apayload\x18\x15 \x01(\fR\apayload\x1a9\n" +
+	"\vLabelsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"Q\n" +
+	"\n" +
+	"EventBatch\x12\x19\n" +
+	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12(\n" +
+	"\x06events\x18\x02 \x03(\v2\x10.gimpel.v1.EventR\x06events\"B\n" +
+	"\x13StreamEventsRequest\x12+\n" +
+	"\x05batch\x18\x01 \x01(\v2\x15.gimpel.v1.EventBatchR\x05batch\"g\n" +
+	"\x14StreamEventsResponse\x12%\n" +
+	"\x0eaccepted_count\x18\x01 \x01(\x03R\racceptedCount\x12(\n" +
+	"\x10failed_event_ids\x18\x02 \x03(\tR\x0efailedEventIds*\xa9\x02\n" +
+	"\tEventType\x12\x1a\n" +
+	"\x16EVENT_TYPE_UNSPECIFIED\x10\x00\x12\x1e\n" +
+	"\x1aEVENT_TYPE_CONNECTION_OPEN\x10\x01\x12\x1f\n" +
+	"\x1bEVENT_TYPE_CONNECTION_CLOSE\x10\x02\x12\x1c\n" +
+	"\x18EVENT_TYPE_DATA_RECEIVED\x10\x03\x12\x18\n" +
+	"\x14EVENT_TYPE_DATA_SENT\x10\x04\x12\x1b\n" +
+	"\x17EVENT_TYPE_AUTH_ATTEMPT\x10\x05\x12\x16\n" +
+	"\x12EVENT_TYPE_COMMAND\x10\x06\x12\x1a\n" +
+	"\x16EVENT_TYPE_FILE_ACCESS\x10\a\x12\x1f\n" +
+	"\x1bEVENT_TYPE_MALWARE_DETECTED\x10\b\x12\x15\n" +
+	"\x11EVENT_TYPE_CUSTOM\x10d2e\n" +
+	"\x10IngestionService\x12Q\n" +
+	"\fStreamEvents\x12\x1e.gimpel.v1.StreamEventsRequest\x1a\x1f.gimpel.v1.StreamEventsResponse(\x01B5Z3github.com/nohaxxjustlags/gimpel/api/go/v1;gimpelv1b\x06proto3"
+
+var (
+	file_v1_telemetry_proto_rawDescOnce sync.Once
+	file_v1_telemetry_proto_rawDescData []byte
+)
+
+func file_v1_telemetry_proto_rawDescGZIP() []byte {
+	file_v1_telemetry_proto_rawDescOnce.Do(func() {
+		file_v1_telemetry_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_v1_telemetry_proto_rawDesc), len(file_v1_telemetry_proto_rawDesc)))
+	})
+	return file_v1_telemetry_proto_rawDescData
+}
+
+var file_v1_telemetry_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_v1_telemetry_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_v1_telemetry_proto_goTypes = []any{
+	(EventType)(0),
+	(*Event)(nil),
+	(*EventBatch)(nil),
+	(*StreamEventsRequest)(nil),
+	(*StreamEventsResponse)(nil),
+	nil,
+}
+var file_v1_telemetry_proto_depIdxs = []int32{
+	0,
+	5,
+	1,
+	2,
+	3,
+	4,
+	5,
+	4,
+	4,
+	4,
+	0,
+}
+
+func init() { file_v1_telemetry_proto_init() }
+func file_v1_telemetry_proto_init() {
+	if File_v1_telemetry_proto != nil {
+		return
+	}
+	type x struct{}
+	out := protoimpl.TypeBuilder{
+		File: protoimpl.DescBuilder{
+			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_v1_telemetry_proto_rawDesc), len(file_v1_telemetry_proto_rawDesc)),
+			NumEnums:      1,
+			NumMessages:   5,
+			NumExtensions: 0,
+			NumServices:   1,
+		},
+		GoTypes:           file_v1_telemetry_proto_goTypes,
+		DependencyIndexes: file_v1_telemetry_proto_depIdxs,
+		EnumInfos:         file_v1_telemetry_proto_enumTypes,
+		MessageInfos:      file_v1_telemetry_proto_msgTypes,
+	}.Build()
+	File_v1_telemetry_proto = out.File
+	file_v1_telemetry_proto_goTypes = nil
+	file_v1_telemetry_proto_depIdxs = nil
+}
