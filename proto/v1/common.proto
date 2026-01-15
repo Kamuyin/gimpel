@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package gimpel.v1;
+
+option go_package = "github.com/nohaxxjustlags/gimpel/api/go/v1;gimpelv1";
+
+message PingRequest {
+  string message = 1;
+}
+
+message PingResponse {
+  string message = 1;
+}
+
+message HeartbeatRequest {
+  string agent_id = 1;
+  int64 timestamp = 2;
+  // Basic health metrics
+  double cpu_usage = 3;
+  double mem_usage = 4;
+}
+
+message HeartbeatResponse {
+  bool ok = 1;
+  // If true, the agent should request a config update
+  bool config_stale = 2;
+}
+
+service GimpelControl {
+  rpc Ping (PingRequest) returns (PingResponse);
+  rpc Heartbeat (HeartbeatRequest) returns (HeartbeatResponse);
+}
