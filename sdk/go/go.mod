@@ -1,6 +1,6 @@
 module github.com/NoHaxxJustLags/gimpel/sdk/go
 
-go 1.25
+go 1.24
 
 require (
 	gimpel v0.0.0

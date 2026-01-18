@@ -132,7 +132,7 @@ func (h *Handler) RequestHISession(ctx context.Context, req *gimpelv1.HISessionR
 		return nil, fmt.Errorf("agent not registered")
 	}
 
-	sess, err := h.sessionMgr.CreateSession(req.AgentId, req.ListenerId, req.SourceIp, req.SourcePort)
+	sess, err := h.sessionMgr.CreateSession(ctx, req.AgentId, req.ListenerId, req.SourceIp, req.SourcePort)
 	if err != nil {
 		return nil, fmt.Errorf("creating session: %w", err)
 	}

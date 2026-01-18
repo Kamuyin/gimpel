@@ -64,7 +64,11 @@ func (a *Agent) initComponents() error {
 		return fmt.Errorf("creating control client: %w", err)
 	}
 
-	a.supervisor = module.NewSupervisor(a.cfg, a.emitter)
+	a.supervisor, err = module.NewSupervisor(a.cfg, a.emitter)
+	if err != nil {
+		return fmt.Errorf("creating supervisor: %w", err)
+	}
+	
 	a.listeners = listener.NewManager(a.cfg, a.supervisor, a.controlClient)
 
 	return nil

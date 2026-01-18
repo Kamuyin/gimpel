@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package gimpel.v1;
+
+option go_package = "github.com/nohaxxjustlags/gimpel/api/go/v1;gimpelv1";
+
+message CreateSessionRequest {
+  string session_id = 1;
+  string image = 2;
+  map<string, string> env = 3;
+}
+
+message CreateSessionResponse {
+  string endpoint = 1; // IP:Port
+  bytes tunnel_key = 2;
+}
+
+message StopSessionRequest {
+  string session_id = 1;
+}
+
+message StopSessionResponse {
+  bool success = 1;
+}
+
+service SandboxService {
+  rpc CreateSession(CreateSessionRequest) returns (CreateSessionResponse);
+  rpc StopSession(StopSessionRequest) returns (StopSessionResponse);
+}

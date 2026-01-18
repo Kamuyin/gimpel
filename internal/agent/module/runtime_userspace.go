@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -18,11 +19,15 @@ func NewUserspaceRuntime() *UserspaceRuntime {
 	return &UserspaceRuntime{}
 }
 
-func (r *UserspaceRuntime) Type() RuntimeType {
-	return RuntimeTypeUserspace
+func (r *UserspaceRuntime) Name() string {
+	return "userspace"
 }
 
-func (r *UserspaceRuntime) Start(ctx context.Context, spec *RuntimeSpec) (*RuntimeInstance, error) {
+func (r *UserspaceRuntime) Type() ExecutionMode {
+	return ExecutionModeUserspace
+}
+
+func (r *UserspaceRuntime) Start(ctx context.Context, spec *ModuleSpec) (*ModuleInstance, error) {
 	socketDir := filepath.Dir(spec.SocketPath)
 	if err := os.MkdirAll(socketDir, 0700); err != nil {
 		return nil, fmt.Errorf("creating socket dir: %w", err)
@@ -30,31 +35,44 @@ func (r *UserspaceRuntime) Start(ctx context.Context, spec *RuntimeSpec) (*Runti
 
 	os.Remove(spec.SocketPath)
 
-	cmd := exec.CommandContext(ctx, spec.Image)
+	procCtx, cancel := context.WithCancel(ctx)
+	cmd := exec.CommandContext(procCtx, spec.Image)
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("GIMPEL_SOCKET=%s", spec.SocketPath),
 		fmt.Sprintf("GIMPEL_MODULE_ID=%s", spec.ID),
+		fmt.Sprintf("GIMPEL_EXECUTION_MODE=%s", spec.ExecutionMode),
+		fmt.Sprintf("GIMPEL_CONNECTION_MODE=%s", spec.ConnectionMode),
 	)
 	for k, v := range spec.Env {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	if spec.WorkingDir != "" {
+		cmd.Dir = spec.WorkingDir
+	}
+
+	cmd.Stdout = &moduleLogger{moduleID: spec.ID, level: "info"}
+	cmd.Stderr = &moduleLogger{moduleID: spec.ID, level: "error"}
 
 	if err := cmd.Start(); err != nil {
+		cancel()
 		return nil, fmt.Errorf("starting process: %w", err)
 	}
 
 	if err := waitForSocket(spec.SocketPath, 10*time.Second); err != nil {
 		cmd.Process.Kill()
+		cancel()
 		return nil, fmt.Errorf("waiting for socket: %w", err)
 	}
 
-	instance := &RuntimeInstance{
+	instance := &ModuleInstance{
 		ID:         spec.ID,
-		Pid:        cmd.Process.Pid,
+		Spec:       spec,
+		PID:        cmd.Process.Pid,
 		SocketPath: spec.SocketPath,
+		StartedAt:  time.Now(),
+		State:      ModuleStateRunning,
+		Metrics:    &ModuleMetrics{},
 		StopFunc: func() {
 			cmd.Process.Signal(os.Interrupt)
 			done := make(chan error, 1)
@@ -64,8 +82,19 @@ func (r *UserspaceRuntime) Start(ctx context.Context, spec *RuntimeSpec) (*Runti
 			case <-time.After(5 * time.Second):
 				cmd.Process.Kill()
 			}
+			cancel()
 		},
 	}
+
+	go func() {
+		err := cmd.Wait()
+		if err != nil {
+			instance.LastError = err
+			instance.State = ModuleStateFailed
+		} else {
+			instance.State = ModuleStateStopped
+		}
+	}()
 
 	log.WithFields(log.Fields{
 		"module": spec.ID,
@@ -76,8 +105,37 @@ func (r *UserspaceRuntime) Start(ctx context.Context, spec *RuntimeSpec) (*Runti
 	return instance, nil
 }
 
-func (r *UserspaceRuntime) Stop(ctx context.Context, instance *RuntimeInstance) error {
-	instance.Stop()
+func (r *UserspaceRuntime) Stop(ctx context.Context, instance *ModuleInstance) error {
+	if instance.StopFunc != nil {
+		instance.StopFunc()
+	}
 	log.WithField("module", instance.ID).Info("userspace module stopped")
 	return nil
+}
+
+func (r *UserspaceRuntime) Signal(ctx context.Context, instance *ModuleInstance, signal int) error {
+	if instance.PID == 0 {
+		return fmt.Errorf("no PID for module %s", instance.ID)
+	}
+	proc, err := os.FindProcess(instance.PID)
+	if err != nil {
+		return fmt.Errorf("finding process: %w", err)
+	}
+	return proc.Signal(syscall.Signal(signal))
+}
+
+func (r *UserspaceRuntime) IsRunning(ctx context.Context, instance *ModuleInstance) bool {
+	if instance.PID == 0 {
+		return false
+	}
+	proc, err := os.FindProcess(instance.PID)
+	if err != nil {
+		return false
+	}
+	err = proc.Signal(syscall.Signal(0))
+	return err == nil
+}
+
+func (r *UserspaceRuntime) Logs(ctx context.Context, instance *ModuleInstance, lines int) ([]string, error) {
+	return nil, fmt.Errorf("logs not available for userspace runtime")
 }

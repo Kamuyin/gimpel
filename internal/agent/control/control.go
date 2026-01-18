@@ -56,8 +56,6 @@ func (c *Client) Connect(ctx context.Context) error {
 			return fmt.Errorf("loading TLS credentials: %w", err)
 		}
 		opts = append(opts, grpc.WithTransportCredentials(creds))
-	} else if tlsCfg.SkipVerify {
-		opts = append(opts, grpc.WithTransportCredentials(LoadInsecureCredentials()))
 	} else {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}

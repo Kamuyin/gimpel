@@ -37,6 +37,29 @@ type ListenerConfig struct {
 	HighInteraction bool   `mapstructure:"high_interaction"`
 }
 
+type ResourceLimitsConfig struct {
+	MaxMemoryMB      int64 `mapstructure:"max_memory_mb"`
+	MaxCPUPercent    int   `mapstructure:"max_cpu_percent"`
+	MaxOpenFiles     int64 `mapstructure:"max_open_files"`
+	MaxProcesses     int64 `mapstructure:"max_processes"`
+	NetworkBandwidth int64 `mapstructure:"network_bandwidth_kbps"`
+}
+
+type HealthCheckConfig struct {
+	Enabled  bool          `mapstructure:"enabled"`
+	Interval time.Duration `mapstructure:"interval"`
+	Timeout  time.Duration `mapstructure:"timeout"`
+	Retries  int           `mapstructure:"retries"`
+}
+
+type RestartPolicyConfig struct {
+	Policy            string        `mapstructure:"policy"`
+	MaxRestarts       int           `mapstructure:"max_restarts"`
+	RestartDelay      time.Duration `mapstructure:"restart_delay"`
+	BackoffMultiplier float64       `mapstructure:"backoff_multiplier"`
+	MaxBackoffDelay   time.Duration `mapstructure:"max_backoff_delay"`
+}
+
 type ModuleConfig struct {
 	ID         string            `mapstructure:"id"`
 	Name       string            `mapstructure:"name"`
@@ -44,6 +67,30 @@ type ModuleConfig struct {
 	SocketPath string            `mapstructure:"socket_path"`
 	Env        map[string]string `mapstructure:"env"`
 	Listeners  []ListenerConfig  `mapstructure:"listeners"`
+
+	ExecutionMode  string `mapstructure:"execution_mode"`
+	ConnectionMode string `mapstructure:"connection_mode"`
+	WorkingDir     string `mapstructure:"working_dir"`
+
+	RequiresRoot        bool `mapstructure:"requires_root"`
+	CanHandleRawPackets bool `mapstructure:"can_handle_raw_packets"`
+
+	ResourceLimits ResourceLimitsConfig `mapstructure:"resource_limits"`
+
+	HealthCheck HealthCheckConfig `mapstructure:"health_check"`
+
+	RestartPolicy RestartPolicyConfig `mapstructure:"restart_policy"`
+}
+
+type RuntimeConfig struct {
+	DefaultExecutionMode  string `mapstructure:"default_execution_mode"`
+	DefaultConnectionMode string `mapstructure:"default_connection_mode"`
+	EnablePrivileged      bool   `mapstructure:"enable_privileged"`
+	EnableContainerd      bool   `mapstructure:"enable_containerd"`
+	ContainerdAddress     string `mapstructure:"containerd_address"`
+	ContainerdNamespace   string `mapstructure:"containerd_namespace"`
+	TrustedKeyFile        string `mapstructure:"trusted_key_file"`
+	ModuleCacheDir        string `mapstructure:"module_cache_dir"`
 }
 
 type AgentConfig struct {
@@ -55,6 +102,7 @@ type AgentConfig struct {
 	ControlPlane ControlPlaneConfig `mapstructure:"control_plane"`
 	Gateway      GatewayConfig      `mapstructure:"gateway"`
 	Modules      []ModuleConfig     `mapstructure:"modules"`
+	Runtime      RuntimeConfig      `mapstructure:"runtime"`
 }
 
 func (c *AgentConfig) Validate() error {

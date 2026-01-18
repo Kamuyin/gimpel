@@ -15,8 +15,10 @@ import (
 	"gimpel/internal/master/ca"
 	"gimpel/internal/master/config"
 	"gimpel/internal/master/configstore"
+	"gimpel/internal/master/modulestore"
 	"gimpel/internal/master/registry"
 	"gimpel/internal/master/session"
+	"gimpel/pkg/signing"
 )
 
 type Server struct {
@@ -29,6 +31,7 @@ type Server struct {
 	CA          *ca.CA
 	ConfigStore configstore.ConfigStore
 	SessionMgr  *session.SessionManager
+	ModuleStore modulestore.Store
 }
 
 func New(cfg *config.MasterConfig) (*Server, error) {
@@ -37,12 +40,49 @@ func New(cfg *config.MasterConfig) (*Server, error) {
 		return nil, fmt.Errorf("initializing CA: %w", err)
 	}
 
+	var moduleSigner *signing.ModuleSigner
+	if cfg.ModuleStore.SigningKeyFile != "" {
+		keyPair, err := signing.LoadPrivateKey(cfg.ModuleStore.SigningKeyFile)
+		if err != nil {
+			if os.IsNotExist(err) && cfg.ModuleStore.AutoSign {
+				log.Info("generating new module signing key pair")
+				keyPair, err = signing.GenerateKeyPair()
+				if err != nil {
+					return nil, fmt.Errorf("generating signing key: %w", err)
+				}
+				if err := keyPair.SavePrivateKey(cfg.ModuleStore.SigningKeyFile); err != nil {
+					return nil, fmt.Errorf("saving private key: %w", err)
+				}
+				if err := keyPair.SavePublicKey(cfg.ModuleStore.PublicKeyFile); err != nil {
+					return nil, fmt.Errorf("saving public key: %w", err)
+				}
+				log.WithField("key_id", keyPair.KeyID).Info("signing key pair generated")
+			} else if !os.IsNotExist(err) {
+				return nil, fmt.Errorf("loading signing key: %w", err)
+			}
+		}
+
+		if keyPair != nil {
+			moduleSigner, err = signing.NewModuleSigner(keyPair)
+			if err != nil {
+				return nil, fmt.Errorf("creating module signer: %w", err)
+			}
+			log.WithField("key_id", keyPair.KeyID).Info("module signing enabled")
+		}
+	}
+
+	moduleStore, err := modulestore.NewFileStore(cfg.ModuleStore.DataDir, moduleSigner)
+	if err != nil {
+		return nil, fmt.Errorf("initializing module store: %w", err)
+	}
+
 	s := &Server{
 		cfg:         cfg,
 		CA:          caInstance,
 		Registry:    registry.NewInMemoryRegistry(&cfg.Registry),
 		ConfigStore: configstore.NewInMemoryConfigStore(),
 		SessionMgr:  session.NewSessionManager(&cfg.Sandbox),
+		ModuleStore: moduleStore,
 	}
 
 	return s, nil
@@ -64,6 +104,9 @@ func (s *Server) Start() error {
 
 	handler := NewHandler(s.cfg, s.Registry, s.CA, s.ConfigStore, s.SessionMgr)
 	gimpelv1.RegisterAgentControlServer(s.grpcServer, handler)
+
+	catalogHandler := NewModuleCatalogHandler(s.ModuleStore)
+	gimpelv1.RegisterModuleCatalogServiceServer(s.grpcServer, catalogHandler)
 
 	log.WithField("address", s.cfg.ListenAddress).Info("master server starting")
 

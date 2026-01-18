@@ -34,15 +34,23 @@ type SandboxConfig struct {
 	Nodes []string `mapstructure:"nodes"`
 }
 
+type ModuleStoreConfig struct {
+	DataDir        string `mapstructure:"data_dir"`
+	SigningKeyFile string `mapstructure:"signing_key"`
+	PublicKeyFile  string `mapstructure:"public_key"`
+	AutoSign       bool   `mapstructure:"auto_sign"`
+}
+
 type MasterConfig struct {
 	ListenAddress      string   `mapstructure:"listen_address"`
 	DataDir            string   `mapstructure:"data_dir"`
 	RegistrationTokens []string `mapstructure:"registration_tokens"`
 
-	TLS      TLSConfig      `mapstructure:"tls"`
-	CA       CAConfig       `mapstructure:"ca"`
-	Registry RegistryConfig `mapstructure:"registry"`
-	Sandbox  SandboxConfig  `mapstructure:"sandbox"`
+	TLS         TLSConfig         `mapstructure:"tls"`
+	CA          CAConfig          `mapstructure:"ca"`
+	Registry    RegistryConfig    `mapstructure:"registry"`
+	Sandbox     SandboxConfig     `mapstructure:"sandbox"`
+	ModuleStore ModuleStoreConfig `mapstructure:"module_store"`
 }
 
 func (c *MasterConfig) Validate() error {
@@ -73,6 +81,17 @@ func (c *MasterConfig) Validate() error {
 	if c.Registry.CleanupInterval == 0 {
 		c.Registry.CleanupInterval = 1 * time.Minute
 	}
+
+	if c.ModuleStore.DataDir == "" {
+		c.ModuleStore.DataDir = c.DataDir + "/modules"
+	}
+	if c.ModuleStore.SigningKeyFile == "" {
+		c.ModuleStore.SigningKeyFile = c.DataDir + "/signing.key"
+	}
+	if c.ModuleStore.PublicKeyFile == "" {
+		c.ModuleStore.PublicKeyFile = c.DataDir + "/signing.pub"
+	}
+
 	return nil
 }
 

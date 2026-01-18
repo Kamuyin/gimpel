@@ -1,6 +1,6 @@
 module ssh-honeypot
 
-go 1.25
+go 1.24
 
 require (
 	github.com/NoHaxxJustLags/gimpel/sdk/go v0.0.0

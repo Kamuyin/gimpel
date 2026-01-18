@@ -1,7 +1,9 @@
-go 1.25
+go 1.24.0
+
+toolchain go1.24.11
 
 use (
 	.
-	./sdk/go
 	./modules/ssh-honeypot
+	./sdk/go
 )

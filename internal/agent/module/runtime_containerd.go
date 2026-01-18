@@ -5,6 +5,8 @@ package module
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/containerd/containerd"
@@ -36,24 +38,44 @@ func NewContainerdRuntime(address, namespace string) (*ContainerdRuntime, error)
 	}, nil
 }
 
-func (r *ContainerdRuntime) Type() RuntimeType {
-	return RuntimeTypeContainerd
+func (r *ContainerdRuntime) Name() string {
+	return "containerd"
 }
 
-func (r *ContainerdRuntime) Start(ctx context.Context, spec *RuntimeSpec) (*RuntimeInstance, error) {
+func (r *ContainerdRuntime) Type() ExecutionMode {
+	return ExecutionModeContainerd
+}
+
+func (r *ContainerdRuntime) Start(ctx context.Context, spec *ModuleSpec) (*ModuleInstance, error) {
 	ctx = namespaces.WithNamespace(ctx, r.namespace)
 
-	image, err := r.client.Pull(ctx, spec.Image, containerd.WithPullUnpack)
+	image, err := r.client.GetImage(ctx, spec.Image)
 	if err != nil {
-		image, err = r.client.GetImage(ctx, spec.Image)
+		log.WithField("image", spec.Image).Debug("image not found locally, pulling")
+		image, err = r.client.Pull(ctx, spec.Image, containerd.WithPullUnpack)
 		if err != nil {
-			return nil, fmt.Errorf("getting image: %w", err)
+			return nil, fmt.Errorf("pulling image: %w", err)
 		}
 	}
 
+	socketDir := filepath.Dir(spec.SocketPath)
+	if !filepath.IsAbs(socketDir) {
+		absSocketDir, err := filepath.Abs(socketDir)
+		if err != nil {
+			return nil, fmt.Errorf("resolving absolute socket path: %w", err)
+		}
+		socketDir = absSocketDir
+		spec.SocketPath = filepath.Join(socketDir, filepath.Base(spec.SocketPath))
+	}
+	if err := os.MkdirAll(socketDir, 0755); err != nil {
+		return nil, fmt.Errorf("creating socket directory: %w", err)
+	}
+
 	envVars := []string{
-		fmt.Sprintf("GIMPEL_SOCKET=/run/gimpel/module.sock"),
+		fmt.Sprintf("GIMPEL_SOCKET=%s", spec.SocketPath),
 		fmt.Sprintf("GIMPEL_MODULE_ID=%s", spec.ID),
+		fmt.Sprintf("GIMPEL_EXECUTION_MODE=%s", spec.ExecutionMode),
+		fmt.Sprintf("GIMPEL_CONNECTION_MODE=%s", spec.ConnectionMode),
 	}
 	for k, v := range spec.Env {
 		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
@@ -68,6 +90,14 @@ func (r *ContainerdRuntime) Start(ctx context.Context, spec *RuntimeSpec) (*Runt
 			oci.WithImageConfig(image),
 			oci.WithEnv(envVars),
 			oci.WithHostNamespace(specs.NetworkNamespace),
+			oci.WithMounts([]specs.Mount{
+				{
+					Destination: socketDir,
+					Type:        "bind",
+					Source:      socketDir,
+					Options:     []string{"rbind", "rw"},
+				},
+			}),
 		),
 	)
 	if err != nil {
@@ -93,9 +123,14 @@ func (r *ContainerdRuntime) Start(ctx context.Context, spec *RuntimeSpec) (*Runt
 		return nil, fmt.Errorf("waiting for socket: %w", err)
 	}
 
-	instance := &RuntimeInstance{
-		ID:         spec.ID,
-		SocketPath: spec.SocketPath,
+	instance := &ModuleInstance{
+		ID:          spec.ID,
+		Spec:        spec,
+		ContainerID: container.ID(),
+		SocketPath:  spec.SocketPath,
+		StartedAt:   time.Now(),
+		State:       ModuleStateRunning,
+		Metrics:     &ModuleMetrics{},
 		StopFunc: func() {
 			stopCtx := context.Background()
 			stopCtx = namespaces.WithNamespace(stopCtx, r.namespace)
@@ -114,10 +149,40 @@ func (r *ContainerdRuntime) Start(ctx context.Context, spec *RuntimeSpec) (*Runt
 	return instance, nil
 }
 
-func (r *ContainerdRuntime) Stop(ctx context.Context, instance *RuntimeInstance) error {
-	instance.Stop()
+func (r *ContainerdRuntime) Stop(ctx context.Context, instance *ModuleInstance) error {
+	if instance.StopFunc != nil {
+		instance.StopFunc()
+	}
 	log.WithField("module", instance.ID).Info("containerd module stopped")
 	return nil
+}
+
+func (r *ContainerdRuntime) Signal(ctx context.Context, instance *ModuleInstance, signal int) error {
+	return fmt.Errorf("signal not implemented for containerd runtime")
+}
+
+func (r *ContainerdRuntime) IsRunning(ctx context.Context, instance *ModuleInstance) bool {
+	if instance.ContainerID == "" {
+		return false
+	}
+	ctx = namespaces.WithNamespace(ctx, r.namespace)
+	container, err := r.client.LoadContainer(ctx, instance.ContainerID)
+	if err != nil {
+		return false
+	}
+	task, err := container.Task(ctx, nil)
+	if err != nil {
+		return false
+	}
+	status, err := task.Status(ctx)
+	if err != nil {
+		return false
+	}
+	return status.Status == containerd.Running
+}
+
+func (r *ContainerdRuntime) Logs(ctx context.Context, instance *ModuleInstance, lines int) ([]string, error) {
+	return nil, fmt.Errorf("logs not implemented for containerd runtime")
 }
 
 func (r *ContainerdRuntime) Close() error {

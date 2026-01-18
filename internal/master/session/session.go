@@ -1,14 +1,16 @@
 package session
 
 import (
-	"crypto/rand"
-	"encoding/hex"
+	"context"
 	"fmt"
 	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
+	gimpelv1 "gimpel/api/go/v1"
 	"gimpel/internal/master/config"
 )
 
@@ -49,22 +51,33 @@ func NewSessionManager(cfg *config.SandboxConfig) *SessionManager {
 	}
 }
 
-func (m *SessionManager) CreateSession(agentID, listenerID, sourceIP string, sourcePort uint32) (*HISession, error) {
+func (m *SessionManager) CreateSession(ctx context.Context, agentID, listenerID, sourceIP string, sourcePort uint32) (*HISession, error) {
 	if len(m.cfg.Nodes) == 0 {
 		return nil, fmt.Errorf("no sandbox nodes configured")
 	}
 
-	sessionID, err := generateSessionID()
-	if err != nil {
-		return nil, fmt.Errorf("generating session ID: %w", err)
-	}
-
-	tunnelKey := make([]byte, 32)
-	if _, err := rand.Read(tunnelKey); err != nil {
-		return nil, fmt.Errorf("generating tunnel key: %w", err)
-	}
+	sessionID := fmt.Sprintf("hi-%s-%d", agentID, time.Now().UnixNano())
 
 	node := m.selectNode()
+
+	conn, err := grpc.NewClient(node, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, fmt.Errorf("dialing sandbox node %s: %w", node, err)
+	}
+	defer conn.Close()
+
+	client := gimpelv1.NewSandboxServiceClient(conn)
+
+	req := &gimpelv1.CreateSessionRequest{
+		SessionId: sessionID,
+		Image:     "default-honeypot",
+		Env:       map[string]string{"AGENT_ID": agentID},
+	}
+
+	resp, err := client.CreateSession(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("creating session on sandbox %s: %w", node, err)
+	}
 
 	session := &HISession{
 		ID:              sessionID,
@@ -73,9 +86,9 @@ func (m *SessionManager) CreateSession(agentID, listenerID, sourceIP string, sou
 		SourceIP:        sourceIP,
 		SourcePort:      sourcePort,
 		SandboxNode:     node,
-		SandboxEndpoint: fmt.Sprintf("%s:5000", node),
-		TunnelKey:       tunnelKey,
-		State:           SessionStatePending,
+		SandboxEndpoint: resp.Endpoint,
+		TunnelKey:       resp.TunnelKey,
+		State:           SessionStateActive,
 		CreatedAt:       time.Now(),
 	}
 
@@ -130,12 +143,4 @@ func (m *SessionManager) selectNode() string {
 	node := m.cfg.Nodes[m.nodeIdx%len(m.cfg.Nodes)]
 	m.nodeIdx++
 	return node
-}
-
-func generateSessionID() (string, error) {
-	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	return "hi-" + hex.EncodeToString(b), nil
 }
