@@ -10,7 +10,6 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"gimpel/internal/master/config"
-	"gimpel/internal/master/registry"
 	"gimpel/internal/master/server"
 )
 
@@ -39,9 +38,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if inMemReg, ok := srv.Registry.(*registry.InMemoryRegistry); ok {
-		go inMemReg.RunHealthChecker(ctx)
-	}
+	_ = ctx
 
 	if err := srv.Start(); err != nil {
 		log.WithError(err).Fatal("failed to start server")

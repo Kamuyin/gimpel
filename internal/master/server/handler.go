@@ -5,40 +5,37 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
 	gimpelv1 "gimpel/api/go/v1"
 	"gimpel/internal/master/ca"
 	"gimpel/internal/master/config"
-	"gimpel/internal/master/configstore"
-	"gimpel/internal/master/registry"
 	"gimpel/internal/master/session"
+	"gimpel/internal/master/store"
 )
 
 type Handler struct {
 	gimpelv1.UnimplementedAgentControlServer
 
-	cfg         *config.MasterConfig
-	registry    registry.Registry
-	ca          *ca.CA
-	configStore configstore.ConfigStore
-	sessionMgr  *session.SessionManager
+	cfg        *config.MasterConfig
+	store      *store.Store
+	ca         *ca.CA
+	sessionMgr *session.SessionManager
 }
 
 func NewHandler(
 	cfg *config.MasterConfig,
-	reg registry.Registry,
+	s *store.Store,
 	caInstance *ca.CA,
-	configStore configstore.ConfigStore,
 	sessionMgr *session.SessionManager,
 ) *Handler {
 	return &Handler{
-		cfg:         cfg,
-		registry:    reg,
-		ca:          caInstance,
-		configStore: configStore,
-		sessionMgr:  sessionMgr,
+		cfg:        cfg,
+		store:      s,
+		ca:         caInstance,
+		sessionMgr: sessionMgr,
 	}
 }
 
@@ -61,17 +58,19 @@ func (h *Handler) Register(ctx context.Context, req *gimpelv1.RegisterRequest) (
 		return nil, fmt.Errorf("issuing certificate: %w", err)
 	}
 
-	agent := &registry.Agent{
-		ID:          agentID,
-		Hostname:    req.Hostname,
-		PublicIPs:   req.PublicIps,
-		OS:          req.Os,
-		Arch:        req.Arch,
-		Certificate: signedCert.Certificate,
+	satellite := &store.Satellite{
+		ID:           agentID,
+		Hostname:     req.Hostname,
+		IPAddress:    firstIP(req.PublicIps),
+		OS:           req.Os,
+		Arch:         req.Arch,
+		Status:       store.SatelliteStatusOnline,
+		RegisteredAt: time.Now(),
+		LastSeenAt:   time.Now(),
 	}
 
-	if err := h.registry.Register(agent); err != nil {
-		return nil, fmt.Errorf("registering agent: %w", err)
+	if err := h.store.RegisterSatellite(satellite); err != nil {
+		return nil, fmt.Errorf("storing satellite: %w", err)
 	}
 
 	log.WithFields(log.Fields{
@@ -79,7 +78,7 @@ func (h *Handler) Register(ctx context.Context, req *gimpelv1.RegisterRequest) (
 		"hostname": req.Hostname,
 		"os":       req.Os,
 		"arch":     req.Arch,
-	}).Info("agent registered")
+	}).Info("satellite registered")
 
 	return &gimpelv1.RegisterResponse{
 		AgentId:       agentID,
@@ -90,35 +89,40 @@ func (h *Handler) Register(ctx context.Context, req *gimpelv1.RegisterRequest) (
 }
 
 func (h *Handler) GetConfig(ctx context.Context, req *gimpelv1.GetConfigRequest) (*gimpelv1.GetConfigResponse, error) {
-	cfg, version, ok := h.configStore.GetConfig(req.AgentId)
-	if !ok {
+	deployment, err := h.store.GetDeployment(req.AgentId)
+	if err != nil {
+		return nil, fmt.Errorf("getting deployment: %w", err)
+	}
+
+	if deployment == nil {
 		return &gimpelv1.GetConfigResponse{Updated: false}, nil
 	}
 
-	if version == req.CurrentVersion {
+	version, _ := parseVersion(req.CurrentVersion)
+	if deployment.Version == version {
 		return &gimpelv1.GetConfigResponse{Updated: false}, nil
 	}
-
-	h.registry.Update(req.AgentId, func(a *registry.Agent) {
-		a.ConfigVersion = version
-	})
 
 	return &gimpelv1.GetConfigResponse{
 		Updated: true,
-		Config:  cfg,
 	}, nil
 }
 
 func (h *Handler) Heartbeat(ctx context.Context, req *gimpelv1.HeartbeatRequest) (*gimpelv1.HeartbeatResponse, error) {
-	agent, ok := h.registry.Get(req.AgentId)
-	if !ok {
+	satellite, err := h.store.GetSatellite(req.AgentId)
+	if err != nil {
+		return nil, fmt.Errorf("getting satellite: %w", err)
+	}
+
+	if satellite == nil {
 		return &gimpelv1.HeartbeatResponse{Ok: false}, nil
 	}
 
-	agent.UpdateHealth(req.CpuUsage, req.MemUsage)
+	if err := h.store.UpdateSatelliteStatus(req.AgentId, store.SatelliteStatusOnline); err != nil {
+		log.WithError(err).Warn("failed to update satellite status")
+	}
 
-	_, version, ok := h.configStore.GetConfig(req.AgentId)
-	configStale := ok && version != agent.ConfigVersion
+	configStale := false
 
 	return &gimpelv1.HeartbeatResponse{
 		Ok:          true,
@@ -127,9 +131,13 @@ func (h *Handler) Heartbeat(ctx context.Context, req *gimpelv1.HeartbeatRequest)
 }
 
 func (h *Handler) RequestHISession(ctx context.Context, req *gimpelv1.HISessionRequest) (*gimpelv1.HISessionResponse, error) {
-	_, ok := h.registry.Get(req.AgentId)
-	if !ok {
-		return nil, fmt.Errorf("agent not registered")
+	satellite, err := h.store.GetSatellite(req.AgentId)
+	if err != nil {
+		return nil, fmt.Errorf("getting satellite: %w", err)
+	}
+
+	if satellite == nil {
+		return nil, fmt.Errorf("satellite not registered")
 	}
 
 	sess, err := h.sessionMgr.CreateSession(ctx, req.AgentId, req.ListenerId, req.SourceIp, req.SourcePort)
@@ -161,7 +169,20 @@ func generateAgentID() (string, error) {
 	if _, err := rand.Read(b); err != nil {
 		return "", err
 	}
-	return "agent-" + hex.EncodeToString(b), nil
+	return "sat-" + hex.EncodeToString(b), nil
+}
+
+func firstIP(ips []string) string {
+	if len(ips) > 0 {
+		return ips[0]
+	}
+	return ""
+}
+
+func parseVersion(s string) (int64, error) {
+	var v int64
+	_, err := fmt.Sscanf(s, "%d", &v)
+	return v, err
 }
 
 var _ gimpelv1.AgentControlServer = (*Handler)(nil)

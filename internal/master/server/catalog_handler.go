@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
 	gimpelv1 "gimpel/api/go/v1"
-	"gimpel/internal/master/modulestore"
+	"gimpel/internal/master/store"
+	"gimpel/pkg/signing"
 )
 
 const (
@@ -18,34 +20,52 @@ const (
 type ModuleCatalogHandler struct {
 	gimpelv1.UnimplementedModuleCatalogServiceServer
 
-	store modulestore.Store
+	store  *store.Store
+	signer *signing.ModuleSigner
 }
 
-func NewModuleCatalogHandler(store modulestore.Store) *ModuleCatalogHandler {
+func NewModuleCatalogHandler(s *store.Store, signer *signing.ModuleSigner) *ModuleCatalogHandler {
 	return &ModuleCatalogHandler{
-		store: store,
+		store:  s,
+		signer: signer,
 	}
 }
 
 func (h *ModuleCatalogHandler) GetCatalog(ctx context.Context, req *gimpelv1.GetCatalogRequest) (*gimpelv1.GetCatalogResponse, error) {
-	currentVersion := h.store.GetCatalogVersion()
-
-	if req.CurrentVersion >= currentVersion {
-		return &gimpelv1.GetCatalogResponse{
-			Updated: false,
-		}, nil
+	modules, err := h.store.ListModules()
+	if err != nil {
+		return nil, fmt.Errorf("listing modules: %w", err)
 	}
 
-	catalog, err := h.store.GetCatalog()
-	if err != nil {
-		return nil, fmt.Errorf("getting catalog: %w", err)
+	catalog := &gimpelv1.ModuleCatalog{
+		Version:   time.Now().Unix(),
+		UpdatedAt: time.Now().Unix(),
+		Modules:   make([]*gimpelv1.ModuleImage, 0, len(modules)),
+	}
+
+	for _, mod := range modules {
+		catalog.Modules = append(catalog.Modules, &gimpelv1.ModuleImage{
+			Id:        mod.ID,
+			Version:   mod.Version,
+			Digest:    mod.Digest,
+			Signature: mod.Signature,
+			SignedBy:  mod.SignedBy,
+			SignedAt:  mod.SignedAt.Unix(),
+			SizeBytes: mod.SizeBytes,
+		})
+	}
+
+	if h.signer != nil {
+		if err := h.signer.SignCatalog(catalog); err != nil {
+			log.WithError(err).Warn("failed to sign catalog")
+		}
 	}
 
 	log.WithFields(log.Fields{
 		"client_version": req.CurrentVersion,
-		"server_version": currentVersion,
+		"server_version": catalog.Version,
 		"module_count":   len(catalog.Modules),
-	}).Debug("serving catalog update")
+	}).Debug("serving catalog")
 
 	return &gimpelv1.GetCatalogResponse{
 		Updated: true,
@@ -54,25 +74,60 @@ func (h *ModuleCatalogHandler) GetCatalog(ctx context.Context, req *gimpelv1.Get
 }
 
 func (h *ModuleCatalogHandler) GetModuleAssignments(ctx context.Context, req *gimpelv1.GetModuleAssignmentsRequest) (*gimpelv1.GetModuleAssignmentsResponse, error) {
-	config, err := h.store.GetAgentAssignments(req.AgentId)
+	deployment, err := h.store.GetDeployment(req.AgentId)
 	if err != nil {
+		return nil, fmt.Errorf("getting deployment: %w", err)
+	}
+
+	if deployment == nil {
 		return &gimpelv1.GetModuleAssignmentsResponse{
 			Updated: false,
 		}, nil
 	}
 
-	if req.CurrentVersion >= config.Version {
+	if req.CurrentVersion >= deployment.Version {
 		return &gimpelv1.GetModuleAssignmentsResponse{
 			Updated: false,
 		}, nil
+	}
+
+	config := &gimpelv1.AgentModuleConfig{
+		AgentId:     req.AgentId,
+		Version:     deployment.Version,
+		Assignments: make([]*gimpelv1.ModuleAssignment, 0, len(deployment.Modules)),
+	}
+
+	for _, mod := range deployment.Modules {
+		listeners := make([]*gimpelv1.ListenerAssignment, 0, len(mod.Listeners))
+		for _, l := range mod.Listeners {
+			listeners = append(listeners, &gimpelv1.ListenerAssignment{
+				Id:              l.ID,
+				Protocol:        l.Protocol,
+				Port:            l.Port,
+				HighInteraction: l.HighInteraction,
+			})
+		}
+
+		config.Assignments = append(config.Assignments, &gimpelv1.ModuleAssignment{
+			ModuleId:      mod.ModuleID,
+			Version:       mod.ModuleVersion,
+			ExecutionMode: mod.ExecutionMode,
+			Listeners:     listeners,
+			Env:           mod.Env,
+		})
+	}
+
+	if h.signer != nil {
+		if err := h.signer.SignAgentConfig(config); err != nil {
+			log.WithError(err).Warn("failed to sign agent config")
+		}
 	}
 
 	log.WithFields(log.Fields{
-		"agent_id":       req.AgentId,
-		"client_version": req.CurrentVersion,
-		"server_version": config.Version,
-		"assignments":    len(config.Assignments),
-	}).Debug("serving module assignments")
+		"agent_id":    req.AgentId,
+		"version":     deployment.Version,
+		"assignments": len(config.Assignments),
+	}).Debug("serving assignments")
 
 	return &gimpelv1.GetModuleAssignmentsResponse{
 		Updated: true,
@@ -81,77 +136,64 @@ func (h *ModuleCatalogHandler) GetModuleAssignments(ctx context.Context, req *gi
 }
 
 func (h *ModuleCatalogHandler) DownloadModule(req *gimpelv1.DownloadModuleRequest, stream gimpelv1.ModuleCatalogService_DownloadModuleServer) error {
-	module, err := h.store.GetModule(req.ModuleId, req.Version)
+	reader, size, err := h.store.OpenImage(req.ModuleId, req.Version)
 	if err != nil {
-		return fmt.Errorf("module not found: %w", err)
-	}
-
-	reader, totalSize, err := h.store.GetModuleImage(req.ModuleId, module.Version)
-	if err != nil {
-		return fmt.Errorf("opening module image: %w", err)
+		return fmt.Errorf("opening image: %w", err)
 	}
 	defer reader.Close()
 
 	log.WithFields(log.Fields{
 		"module":     req.ModuleId,
-		"version":    module.Version,
-		"size_bytes": totalSize,
+		"version":    req.Version,
+		"size_bytes": size,
 	}).Info("streaming module image")
 
 	buf := make([]byte, ChunkSize)
-	offset := int64(0)
-
 	for {
 		n, err := reader.Read(buf)
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			return fmt.Errorf("reading image data: %w", err)
+			return fmt.Errorf("reading image: %w", err)
 		}
 
-		chunk := &gimpelv1.ModuleImageChunk{
-			Data:      buf[:n],
-			Offset:    offset,
-			TotalSize: totalSize,
-			IsLast:    offset+int64(n) >= totalSize,
-		}
-
-		if err := stream.Send(chunk); err != nil {
+		if err := stream.Send(&gimpelv1.ModuleImageChunk{
+			Data: buf[:n],
+		}); err != nil {
 			return fmt.Errorf("sending chunk: %w", err)
 		}
-
-		offset += int64(n)
 	}
-
-	log.WithFields(log.Fields{
-		"module":       req.ModuleId,
-		"version":      module.Version,
-		"bytes_sent":   offset,
-		"chunk_count":  (offset + ChunkSize - 1) / ChunkSize,
-	}).Debug("module image stream completed")
 
 	return nil
 }
 
 func (h *ModuleCatalogHandler) VerifyModule(ctx context.Context, req *gimpelv1.VerifyModuleRequest) (*gimpelv1.VerifyModuleResponse, error) {
-	module, err := h.store.GetModule(req.ModuleId, req.Version)
+	meta, err := h.store.GetImage(req.ModuleId, req.Version)
 	if err != nil {
-		return nil, fmt.Errorf("module not found: %w", err)
+		return nil, fmt.Errorf("getting image: %w", err)
 	}
 
-	valid := module.Digest == req.Digest
+	if meta == nil {
+		return &gimpelv1.VerifyModuleResponse{
+			Valid: false,
+		}, nil
+	}
 
-	log.WithFields(log.Fields{
-		"module":          req.ModuleId,
-		"version":         req.Version,
-		"client_digest":   req.Digest[:20] + "...",
-		"expected_digest": module.Digest[:20] + "...",
-		"valid":           valid,
-	}).Debug("module verification request")
+	if meta.Digest != req.Digest {
+		return &gimpelv1.VerifyModuleResponse{
+			Valid: false,
+		}, nil
+	}
+
+	mod, _ := h.store.GetModule(req.ModuleId, req.Version)
+	var sig []byte
+	if mod != nil {
+		sig = mod.Signature
+	}
 
 	return &gimpelv1.VerifyModuleResponse{
-		Valid:     valid,
-		Signature: module.Signature,
+		Valid:     true,
+		Signature: sig,
 	}, nil
 }

@@ -1,5 +1,5 @@
-// Package moduleclient provides client-side functionality for fetching
-package moduleclient
+// Package catalog provides client-side functionality for fetching
+package catalog
 
 import (
 	"context"
@@ -183,6 +183,11 @@ func (c *Client) DownloadModule(ctx context.Context, moduleID, version string) (
 	})
 	if err != nil {
 		return "", fmt.Errorf("starting download: %w", err)
+	}
+
+	cacheSubDir := filepath.Dir(cachedPath)
+	if err := os.MkdirAll(cacheSubDir, 0755); err != nil {
+		return "", fmt.Errorf("creating cache directory: %w", err)
 	}
 
 	tmpPath := cachedPath + ".tmp"

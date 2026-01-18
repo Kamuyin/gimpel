@@ -1,6 +1,6 @@
 //go:build linux
 
-package moduleclient
+package catalog
 
 import (
 	"context"

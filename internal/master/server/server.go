@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -14,10 +15,8 @@ import (
 	gimpelv1 "gimpel/api/go/v1"
 	"gimpel/internal/master/ca"
 	"gimpel/internal/master/config"
-	"gimpel/internal/master/configstore"
-	"gimpel/internal/master/modulestore"
-	"gimpel/internal/master/registry"
 	"gimpel/internal/master/session"
+	"gimpel/internal/master/store"
 	"gimpel/pkg/signing"
 )
 
@@ -27,11 +26,10 @@ type Server struct {
 	grpcServer *grpc.Server
 	listener   net.Listener
 
-	Registry    registry.Registry
-	CA          *ca.CA
-	ConfigStore configstore.ConfigStore
-	SessionMgr  *session.SessionManager
-	ModuleStore modulestore.Store
+	Store      *store.Store
+	CA         *ca.CA
+	SessionMgr *session.SessionManager
+	Signer     *signing.ModuleSigner
 }
 
 func New(cfg *config.MasterConfig) (*Server, error) {
@@ -49,6 +47,9 @@ func New(cfg *config.MasterConfig) (*Server, error) {
 				keyPair, err = signing.GenerateKeyPair()
 				if err != nil {
 					return nil, fmt.Errorf("generating signing key: %w", err)
+				}
+				if err := os.MkdirAll(filepath.Dir(cfg.ModuleStore.SigningKeyFile), 0755); err != nil {
+					return nil, fmt.Errorf("creating key directory: %w", err)
 				}
 				if err := keyPair.SavePrivateKey(cfg.ModuleStore.SigningKeyFile); err != nil {
 					return nil, fmt.Errorf("saving private key: %w", err)
@@ -71,18 +72,20 @@ func New(cfg *config.MasterConfig) (*Server, error) {
 		}
 	}
 
-	moduleStore, err := modulestore.NewFileStore(cfg.ModuleStore.DataDir, moduleSigner)
+	masterStore, err := store.New(&store.Config{
+		DBPath:   filepath.Join(cfg.DataDir, "master.db"),
+		ImageDir: filepath.Join(cfg.DataDir, "images"),
+	})
 	if err != nil {
-		return nil, fmt.Errorf("initializing module store: %w", err)
+		return nil, fmt.Errorf("initializing store: %w", err)
 	}
 
 	s := &Server{
-		cfg:         cfg,
-		CA:          caInstance,
-		Registry:    registry.NewInMemoryRegistry(&cfg.Registry),
-		ConfigStore: configstore.NewInMemoryConfigStore(),
-		SessionMgr:  session.NewSessionManager(&cfg.Sandbox),
-		ModuleStore: moduleStore,
+		cfg:        cfg,
+		CA:         caInstance,
+		SessionMgr: session.NewSessionManager(&cfg.Sandbox),
+		Store:      masterStore,
+		Signer:     moduleSigner,
 	}
 
 	return s, nil
@@ -102,10 +105,10 @@ func (s *Server) Start() error {
 
 	s.grpcServer = grpc.NewServer(opts...)
 
-	handler := NewHandler(s.cfg, s.Registry, s.CA, s.ConfigStore, s.SessionMgr)
+	handler := NewHandler(s.cfg, s.Store, s.CA, s.SessionMgr)
 	gimpelv1.RegisterAgentControlServer(s.grpcServer, handler)
 
-	catalogHandler := NewModuleCatalogHandler(s.ModuleStore)
+	catalogHandler := NewModuleCatalogHandler(s.Store, s.Signer)
 	gimpelv1.RegisterModuleCatalogServiceServer(s.grpcServer, catalogHandler)
 
 	log.WithField("address", s.cfg.ListenAddress).Info("master server starting")
@@ -122,6 +125,9 @@ func (s *Server) Start() error {
 func (s *Server) Stop() {
 	if s.grpcServer != nil {
 		s.grpcServer.GracefulStop()
+	}
+	if s.Store != nil {
+		s.Store.Close()
 	}
 	log.Info("master server stopped")
 }
