@@ -3,6 +3,7 @@ package server
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -42,7 +43,7 @@ func New(cfg *config.MasterConfig) (*Server, error) {
 	if cfg.ModuleStore.SigningKeyFile != "" {
 		keyPair, err := signing.LoadPrivateKey(cfg.ModuleStore.SigningKeyFile)
 		if err != nil {
-			if os.IsNotExist(err) && cfg.ModuleStore.AutoSign {
+			if errors.Is(err, os.ErrNotExist) && cfg.ModuleStore.AutoSign {
 				log.Info("generating new module signing key pair")
 				keyPair, err = signing.GenerateKeyPair()
 				if err != nil {
@@ -58,7 +59,7 @@ func New(cfg *config.MasterConfig) (*Server, error) {
 					return nil, fmt.Errorf("saving public key: %w", err)
 				}
 				log.WithField("key_id", keyPair.KeyID).Info("signing key pair generated")
-			} else if !os.IsNotExist(err) {
+			} else if !errors.Is(err, os.ErrNotExist) {
 				return nil, fmt.Errorf("loading signing key: %w", err)
 			}
 		}

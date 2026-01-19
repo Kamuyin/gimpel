@@ -1,4 +1,3 @@
-// Package signing provides Ed25519 signature utilities for module verification.
 package signing
 
 import (
