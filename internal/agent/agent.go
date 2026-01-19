@@ -3,8 +3,10 @@ package agent
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"runtime"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -12,6 +14,8 @@ import (
 	"gimpel/internal/agent/control"
 	"gimpel/internal/agent/listener"
 	"gimpel/internal/agent/module"
+	"gimpel/internal/agent/modules"
+	"gimpel/internal/agent/store"
 	"gimpel/internal/agent/telemetry"
 )
 
@@ -23,6 +27,11 @@ type Agent struct {
 	supervisor    *module.Supervisor
 	listeners     *listener.Manager
 	emitter       *telemetry.Emitter
+
+	store          *store.Store
+	catalogSyncer  *modules.CatalogSyncer
+	downloader     *modules.ModuleDownloader
+	reconciler     *modules.Reconciler
 
 	mu     sync.RWMutex
 	ctx    context.Context
@@ -54,6 +63,14 @@ func New(cfg *config.AgentConfig) (*Agent, error) {
 func (a *Agent) initComponents() error {
 	var err error
 
+	a.store, err = store.New(&store.Config{
+		DBPath:   filepath.Join(a.cfg.DataDir, "agent.db"),
+		CacheDir: a.cfg.Runtime.ModuleCacheDir,
+	})
+	if err != nil {
+		return fmt.Errorf("creating store: %w", err)
+	}
+
 	a.emitter, err = telemetry.NewEmitter(a.ctx, a.cfg, a.identity.ID)
 	if err != nil {
 		return fmt.Errorf("creating emitter: %w", err)
@@ -70,6 +87,22 @@ func (a *Agent) initComponents() error {
 	}
 	
 	a.listeners = listener.NewManager(a.cfg, a.supervisor, a.controlClient)
+
+	if a.cfg.Runtime.TrustedKeyFile != "" {
+		a.catalogSyncer, err = modules.NewCatalogSyncer(
+			a.cfg,
+			a.identity.ID,
+			a.store,
+			a.cfg.Runtime.TrustedKeyFile,
+		)
+		if err != nil {
+			return fmt.Errorf("creating catalog syncer: %w", err)
+		}
+
+		log.WithField("trusted_key", a.cfg.Runtime.TrustedKeyFile).Info("module lifecycle enabled")
+	} else {
+		log.Warn("no trusted key configured, module lifecycle disabled")
+	}
 
 	return nil
 }
@@ -91,11 +124,31 @@ func (a *Agent) Run(ctx context.Context) error {
 		}
 	}
 
+	if a.catalogSyncer != nil {
+		if err := a.catalogSyncer.Connect(ctx); err != nil {
+			return fmt.Errorf("connecting to catalog service: %w", err)
+		}
+		defer a.catalogSyncer.Close()
+
+		a.downloader = modules.NewModuleDownloader(
+			a.catalogSyncer.GetCatalogClient(),
+			a.store,
+			a.cfg.Runtime.ModuleCacheDir,
+			a.catalogSyncer.GetVerifier(),
+		)
+		a.reconciler = modules.NewReconciler(a.store, a.downloader, a.supervisor)
+
+		log.Info("performing initial module sync")
+		if err := a.syncModules(ctx); err != nil {
+			log.WithError(err).Warn("initial module sync failed")
+		}
+	}
+
 	if err := a.fetchConfig(ctx); err != nil {
 		log.WithError(err).Warn("failed to fetch initial config, using local config")
 	}
 
-	errCh := make(chan error, 4)
+	errCh := make(chan error, 6)
 
 	go func() {
 		errCh <- a.controlClient.RunHeartbeatLoop(ctx, a.cfg.HeartbeatInterval, a.collectMetrics)
@@ -112,6 +165,12 @@ func (a *Agent) Run(ctx context.Context) error {
 	go func() {
 		errCh <- a.listeners.Run(ctx)
 	}()
+
+	if a.catalogSyncer != nil {
+		go func() {
+			errCh <- a.runModuleSyncLoop(ctx)
+		}()
+	}
 
 	select {
 	case err := <-errCh:
@@ -135,6 +194,10 @@ func (a *Agent) Shutdown(ctx context.Context) error {
 
 	if a.emitter != nil {
 		a.emitter.Flush(ctx)
+	}
+
+	if a.store != nil {
+		a.store.Close()
 	}
 
 	return nil
@@ -185,4 +248,39 @@ func (a *Agent) collectMetrics() (cpuUsage, memUsage float64) {
 	runtime.ReadMemStats(&m)
 	memUsage = float64(m.Alloc) / float64(m.Sys)
 	return 0, memUsage
+}
+
+func (a *Agent) syncModules(ctx context.Context) error {
+	if err := a.catalogSyncer.SyncCatalog(ctx); err != nil {
+		return fmt.Errorf("syncing catalog: %w", err)
+	}
+
+	deployment, err := a.catalogSyncer.SyncAssignments(ctx)
+	if err != nil {
+		return fmt.Errorf("syncing assignments: %w", err)
+	}
+
+	if deployment != nil {
+		if err := a.reconciler.Reconcile(ctx); err != nil {
+			return fmt.Errorf("reconciling deployments: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (a *Agent) runModuleSyncLoop(ctx context.Context) error {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			if err := a.syncModules(ctx); err != nil {
+				log.WithError(err).Warn("module sync failed")
+			}
+		}
+	}
 }

@@ -24,6 +24,14 @@ func (s *Store) GetState() (*AgentState, error) {
 	return &state, nil
 }
 
+func (s *Store) GetAgentState() (*AgentState, error) {
+	return s.GetState()
+}
+
+func (s *Store) SaveAgentState(state *AgentState) error {
+	return s.SaveState(state)
+}
+
 func (s *Store) UpdateSyncTime() error {
 	state, err := s.GetState()
 	if err != nil {

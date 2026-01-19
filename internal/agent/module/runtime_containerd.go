@@ -49,12 +49,50 @@ func (r *ContainerdRuntime) Type() ExecutionMode {
 func (r *ContainerdRuntime) Start(ctx context.Context, spec *ModuleSpec) (*ModuleInstance, error) {
 	ctx = namespaces.WithNamespace(ctx, r.namespace)
 
-	image, err := r.client.GetImage(ctx, spec.Image)
-	if err != nil {
-		log.WithField("image", spec.Image).Debug("image not found locally, pulling")
-		image, err = r.client.Pull(ctx, spec.Image, containerd.WithPullUnpack)
+	var image containerd.Image
+	var err error
+
+	if _, statErr := os.Stat(spec.Image); statErr == nil {
+		log.WithField("path", spec.Image).Info("importing module from local tar file")
+		
+		file, err := os.Open(spec.Image)
 		if err != nil {
-			return nil, fmt.Errorf("pulling image: %w", err)
+			return nil, fmt.Errorf("opening tar file: %w", err)
+		}
+		defer file.Close()
+
+		imageRef := fmt.Sprintf("gimpel/%s:latest", spec.ID)
+		
+		imgs, err := r.client.Import(ctx, file, containerd.WithImageRefTranslator(
+			func(_ string) string {
+				return imageRef
+			},
+		))
+		if err != nil {
+			return nil, fmt.Errorf("importing image: %w", err)
+		}
+		
+		if len(imgs) == 0 {
+			return nil, fmt.Errorf("no images imported from tar")
+		}
+		
+		image, err = r.client.GetImage(ctx, imgs[0].Name)
+		if err != nil {
+			return nil, fmt.Errorf("getting imported image: %w", err)
+		}
+		
+		log.WithFields(log.Fields{
+			"image_name": image.Name(),
+			"digest":     imgs[0].Target.Digest,
+		}).Info("module imported successfully")
+	} else {
+		image, err = r.client.GetImage(ctx, spec.Image)
+		if err != nil {
+			log.WithField("image", spec.Image).Debug("image not found locally, pulling")
+			image, err = r.client.Pull(ctx, spec.Image, containerd.WithPullUnpack)
+			if err != nil {
+				return nil, fmt.Errorf("pulling image: %w", err)
+			}
 		}
 	}
 
