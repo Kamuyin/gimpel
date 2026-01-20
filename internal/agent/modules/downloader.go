@@ -123,6 +123,8 @@ func (md *ModuleDownloader) DownloadModule(ctx context.Context, moduleID, versio
 		Version:   version,
 		Digest:    digest,
 		Signature: verifyResp.Signature,
+		SignedBy:  verifyResp.SignedBy,
+		SignedAt:  verifyResp.SignedAt,
 	}
 
 	if err := md.verifier.VerifyModule(moduleImage); err != nil {
@@ -142,7 +144,7 @@ func (md *ModuleDownloader) DownloadModule(ctx context.Context, moduleID, versio
 		ImagePath:    finalPath,
 		SizeBytes:    totalSize,
 		Signature:    verifyResp.Signature,
-		SignedBy:     moduleImage.SignedBy,
+		SignedBy:     verifyResp.SignedBy,
 		DownloadedAt: time.Now(),
 		Verified:     true,
 	}

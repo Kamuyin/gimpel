@@ -7,8 +7,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-
 	gimpelv1 "gimpel/api/go/v1"
 	"gimpel/internal/agent/config"
 	"gimpel/internal/agent/control"
@@ -39,15 +37,11 @@ func (gc *GatewayClient) connect(ctx context.Context) error {
 	var opts []grpc.DialOption
 
 	tlsCfg := gc.cfg.Gateway.TLS
-	if tlsCfg.CertFile != "" && tlsCfg.KeyFile != "" {
-		creds, err := control.LoadClientCredentials(tlsCfg.CertFile, tlsCfg.KeyFile, tlsCfg.CAFile, tlsCfg.SkipVerify)
-		if err != nil {
-			return fmt.Errorf("loading TLS credentials: %w", err)
-		}
-		opts = append(opts, grpc.WithTransportCredentials(creds))
-	} else {
-		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	creds, err := control.LoadClientCredentials(tlsCfg.CertFile, tlsCfg.KeyFile, tlsCfg.CAFile)
+	if err != nil {
+		return fmt.Errorf("loading TLS credentials: %w", err)
 	}
+	opts = append(opts, grpc.WithTransportCredentials(creds))
 
 	conn, err := grpc.NewClient(gc.cfg.Gateway.Address, opts...)
 	if err != nil {

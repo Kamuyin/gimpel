@@ -81,10 +81,17 @@ func (r *ContainerdRuntime) Start(ctx context.Context, spec *ModuleSpec) (*Modul
 			return nil, fmt.Errorf("getting imported image: %w", err)
 		}
 		
+		if err := image.Unpack(ctx, "overlayfs"); err != nil {
+			log.WithError(err).Debug("failed to unpack with overlayfs, trying native")
+			if err := image.Unpack(ctx, "native"); err != nil {
+				return nil, fmt.Errorf("unpacking image: %w", err)
+			}
+		}
+		
 		log.WithFields(log.Fields{
 			"image_name": image.Name(),
 			"digest":     imgs[0].Target.Digest,
-		}).Info("module imported successfully")
+		}).Info("module imported and unpacked successfully")
 	} else {
 		image, err = r.client.GetImage(ctx, spec.Image)
 		if err != nil {
@@ -117,6 +124,15 @@ func (r *ContainerdRuntime) Start(ctx context.Context, spec *ModuleSpec) (*Modul
 	}
 	for k, v := range spec.Env {
 		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
+	}
+
+	if existingContainer, err := r.client.LoadContainer(ctx, spec.ID); err == nil {
+		log.WithField("module", spec.ID).Debug("cleaning up existing container")
+		if task, err := existingContainer.Task(ctx, nil); err == nil {
+			task.Kill(ctx, 9)
+			task.Delete(ctx)
+		}
+		existingContainer.Delete(ctx, containerd.WithSnapshotCleanup)
 	}
 
 	container, err := r.client.NewContainer(

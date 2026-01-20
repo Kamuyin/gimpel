@@ -2,7 +2,9 @@ package agent
 
 import (
 	"context"
+	"encoding/pem"
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -17,6 +19,7 @@ import (
 	"gimpel/internal/agent/modules"
 	"gimpel/internal/agent/store"
 	"gimpel/internal/agent/telemetry"
+	"gimpel/pkg/signing"
 )
 
 type Agent struct {
@@ -88,20 +91,8 @@ func (a *Agent) initComponents() error {
 	
 	a.listeners = listener.NewManager(a.cfg, a.supervisor, a.controlClient)
 
-	if a.cfg.Runtime.TrustedKeyFile != "" {
-		a.catalogSyncer, err = modules.NewCatalogSyncer(
-			a.cfg,
-			a.identity.ID,
-			a.store,
-			a.cfg.Runtime.TrustedKeyFile,
-		)
-		if err != nil {
-			return fmt.Errorf("creating catalog syncer: %w", err)
-		}
-
-		log.WithField("trusted_key", a.cfg.Runtime.TrustedKeyFile).Info("module lifecycle enabled")
-	} else {
-		log.Warn("no trusted key configured, module lifecycle disabled")
+	if err := a.initModuleLifecycle(); err != nil {
+		return err
 	}
 
 	return nil
@@ -137,6 +128,8 @@ func (a *Agent) Run(ctx context.Context) error {
 			a.catalogSyncer.GetVerifier(),
 		)
 		a.reconciler = modules.NewReconciler(a.store, a.downloader, a.supervisor)
+		
+		a.reconciler.SetListenerStarter(a.listeners)
 
 		log.Info("performing initial module sync")
 		if err := a.syncModules(ctx); err != nil {
@@ -206,7 +199,7 @@ func (a *Agent) Shutdown(ctx context.Context) error {
 func (a *Agent) register(ctx context.Context) error {
 	log.Info("registering with control plane")
 
-	resp, err := a.controlClient.Register(ctx, a.cfg.RegistrationToken, a.identity)
+	resp, err := a.controlClient.Register(ctx, a.identity)
 	if err != nil {
 		return err
 	}
@@ -217,12 +210,88 @@ func (a *Agent) register(ctx context.Context) error {
 		return fmt.Errorf("saving credentials: %w", err)
 	}
 
+	if err := a.persistModuleSigningKey(resp.CaCertificate); err != nil {
+		log.WithError(err).Warn("failed to persist module signing public key")
+	}
+
 	if err := a.identity.Persist(a.cfg.DataDir); err != nil {
 		return fmt.Errorf("persisting identity: %w", err)
 	}
 
 	log.WithField("agent_id", a.identity.ID).Info("registration complete")
+
+	if a.catalogSyncer != nil {
+		a.catalogSyncer.UpdateAgentID(a.identity.ID)
+	}
+
+	if a.catalogSyncer == nil {
+		if err := a.initModuleLifecycle(); err != nil {
+			log.WithError(err).Warn("failed to initialize module lifecycle after registration")
+		}
+	}
+
 	return nil
+}
+
+func (a *Agent) initModuleLifecycle() error {
+	if a.catalogSyncer != nil {
+		return nil
+	}
+
+	if a.cfg.Runtime.TrustedKeyFile == "" {
+		log.Warn("no trusted key configured, module lifecycle disabled")
+		return nil
+	}
+
+	if _, err := os.Stat(a.cfg.Runtime.TrustedKeyFile); err != nil {
+		log.WithField("trusted_key", a.cfg.Runtime.TrustedKeyFile).Warn("trusted key not found, module lifecycle disabled")
+		return nil
+	}
+
+	cs, err := modules.NewCatalogSyncer(
+		a.cfg,
+		a.identity.ID,
+		a.store,
+		a.cfg.Runtime.TrustedKeyFile,
+	)
+	if err != nil {
+		return fmt.Errorf("creating catalog syncer: %w", err)
+	}
+
+	a.catalogSyncer = cs
+	log.WithField("trusted_key", a.cfg.Runtime.TrustedKeyFile).Info("module lifecycle enabled")
+	return nil
+}
+
+func (a *Agent) persistModuleSigningKey(caBundle []byte) error {
+	keyPath := a.cfg.Runtime.TrustedKeyFile
+	if keyPath == "" {
+		return nil
+	}
+	if _, err := os.Stat(keyPath); err == nil {
+		return nil
+	}
+
+	var block *pem.Block
+	data := caBundle
+	for {
+		block, data = pem.Decode(data)
+		if block == nil {
+			break
+		}
+		if block.Type == signing.PublicKeyPEMType {
+			if err := os.MkdirAll(filepath.Dir(keyPath), 0700); err != nil {
+				return fmt.Errorf("creating key directory: %w", err)
+			}
+			pemBytes := pem.EncodeToMemory(block)
+			if err := os.WriteFile(keyPath, pemBytes, 0644); err != nil {
+				return fmt.Errorf("writing module public key: %w", err)
+			}
+			return nil
+		}
+	}
+
+	return fmt.Errorf("module signing public key not found in CA bundle")
 }
 
 func (a *Agent) fetchConfig(ctx context.Context) error {
@@ -255,15 +324,13 @@ func (a *Agent) syncModules(ctx context.Context) error {
 		return fmt.Errorf("syncing catalog: %w", err)
 	}
 
-	deployment, err := a.catalogSyncer.SyncAssignments(ctx)
+	_, err := a.catalogSyncer.SyncAssignments(ctx)
 	if err != nil {
 		return fmt.Errorf("syncing assignments: %w", err)
 	}
 
-	if deployment != nil {
-		if err := a.reconciler.Reconcile(ctx); err != nil {
-			return fmt.Errorf("reconciling deployments: %w", err)
-		}
+	if err := a.reconciler.Reconcile(ctx); err != nil {
+		return fmt.Errorf("reconciling deployments: %w", err)
 	}
 
 	return nil

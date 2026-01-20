@@ -12,10 +12,16 @@ import (
 	"gimpel/internal/agent/store"
 )
 
+type ListenerStarter interface {
+	StartListener(ctx context.Context, cfg config.ListenerConfig) error
+	StopListener(id string) error
+}
+
 type Reconciler struct {
-	store      Store
-	downloader *ModuleDownloader
-	supervisor *module.Supervisor
+	store           Store
+	downloader      *ModuleDownloader
+	supervisor      *module.Supervisor
+	listenerStarter ListenerStarter
 }
 
 func NewReconciler(store Store, downloader *ModuleDownloader, supervisor *module.Supervisor) *Reconciler {
@@ -24,6 +30,10 @@ func NewReconciler(store Store, downloader *ModuleDownloader, supervisor *module
 		downloader: downloader,
 		supervisor: supervisor,
 	}
+}
+
+func (r *Reconciler) SetListenerStarter(ls ListenerStarter) {
+	r.listenerStarter = ls
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context) error {
@@ -69,6 +79,24 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 		if err := r.supervisor.StartModule(ctx, modCfg); err != nil {
 			log.WithError(err).WithField("module", modDeploy.ModuleID).Error("failed to start module")
 			continue
+		}
+
+		if r.listenerStarter != nil {
+			for _, lCfg := range modCfg.Listeners {
+				if err := r.listenerStarter.StartListener(ctx, lCfg); err != nil {
+					log.WithError(err).WithFields(log.Fields{
+						"module":   modDeploy.ModuleID,
+						"listener": lCfg.ID,
+						"port":     lCfg.Port,
+					}).Error("failed to start listener")
+				} else {
+					log.WithFields(log.Fields{
+						"module":   modDeploy.ModuleID,
+						"listener": lCfg.ID,
+						"port":     lCfg.Port,
+					}).Info("listener started")
+				}
+			}
 		}
 
 		log.WithFields(log.Fields{

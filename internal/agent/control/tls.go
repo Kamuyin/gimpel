@@ -9,40 +9,32 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-func LoadClientCredentials(certFile, keyFile, caFile string, skipVerify bool) (credentials.TransportCredentials, error) {
-	if certFile == "" || keyFile == "" {
-		if skipVerify {
-			return credentials.NewTLS(&tls.Config{InsecureSkipVerify: true}), nil
-		}
-		return nil, fmt.Errorf("certificate and key files are required")
+func LoadClientCredentials(certFile, keyFile, caFile string) (credentials.TransportCredentials, error) {
+	if caFile == "" {
+		return nil, fmt.Errorf("ca_file is required for TLS verification")
 	}
 
-	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	caCert, err := os.ReadFile(caFile)
 	if err != nil {
-		return nil, fmt.Errorf("loading key pair: %w", err)
+		return nil, fmt.Errorf("reading CA cert: %w", err)
+	}
+
+	caPool := x509.NewCertPool()
+	if !caPool.AppendCertsFromPEM(caCert) {
+		return nil, fmt.Errorf("failed to parse CA certificate")
 	}
 
 	tlsConfig := &tls.Config{
-		Certificates:       []tls.Certificate{cert},
-		InsecureSkipVerify: skipVerify,
+		RootCAs: caPool,
 	}
 
-	if caFile != "" && !skipVerify {
-		caCert, err := os.ReadFile(caFile)
+	if certFile != "" && keyFile != "" {
+		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 		if err != nil {
-			return nil, fmt.Errorf("reading CA cert: %w", err)
+			return nil, fmt.Errorf("loading key pair: %w", err)
 		}
-
-		caPool := x509.NewCertPool()
-		if !caPool.AppendCertsFromPEM(caCert) {
-			return nil, fmt.Errorf("failed to parse CA certificate")
-		}
-		tlsConfig.RootCAs = caPool
+		tlsConfig.Certificates = []tls.Certificate{cert}
 	}
 
 	return credentials.NewTLS(tlsConfig), nil
-}
-
-func LoadInsecureCredentials() credentials.TransportCredentials {
-	return credentials.NewTLS(&tls.Config{InsecureSkipVerify: true})
 }

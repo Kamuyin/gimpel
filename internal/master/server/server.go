@@ -3,7 +3,6 @@ package server
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -30,7 +29,9 @@ type Server struct {
 	Store      *store.Store
 	CA         *ca.CA
 	SessionMgr *session.SessionManager
-	Signer     *signing.ModuleSigner
+	Verifier   *signing.ModuleVerifier
+	ModuleKey  *signing.KeyPair
+	ModuleKeyPEM []byte
 }
 
 func New(cfg *config.MasterConfig) (*Server, error) {
@@ -39,39 +40,22 @@ func New(cfg *config.MasterConfig) (*Server, error) {
 		return nil, fmt.Errorf("initializing CA: %w", err)
 	}
 
-	var moduleSigner *signing.ModuleSigner
-	if cfg.ModuleStore.SigningKeyFile != "" {
-		keyPair, err := signing.LoadPrivateKey(cfg.ModuleStore.SigningKeyFile)
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) && cfg.ModuleStore.AutoSign {
-				log.Info("generating new module signing key pair")
-				keyPair, err = signing.GenerateKeyPair()
-				if err != nil {
-					return nil, fmt.Errorf("generating signing key: %w", err)
-				}
-				if err := os.MkdirAll(filepath.Dir(cfg.ModuleStore.SigningKeyFile), 0755); err != nil {
-					return nil, fmt.Errorf("creating key directory: %w", err)
-				}
-				if err := keyPair.SavePrivateKey(cfg.ModuleStore.SigningKeyFile); err != nil {
-					return nil, fmt.Errorf("saving private key: %w", err)
-				}
-				if err := keyPair.SavePublicKey(cfg.ModuleStore.PublicKeyFile); err != nil {
-					return nil, fmt.Errorf("saving public key: %w", err)
-				}
-				log.WithField("key_id", keyPair.KeyID).Info("signing key pair generated")
-			} else if !errors.Is(err, os.ErrNotExist) {
-				return nil, fmt.Errorf("loading signing key: %w", err)
-			}
-		}
-
-		if keyPair != nil {
-			moduleSigner, err = signing.NewModuleSigner(keyPair)
-			if err != nil {
-				return nil, fmt.Errorf("creating module signer: %w", err)
-			}
-			log.WithField("key_id", keyPair.KeyID).Info("module signing enabled")
-		}
+	var moduleKey *signing.KeyPair
+	var moduleKeyPEM []byte
+	if cfg.ModuleStore.PublicKeyFile == "" {
+		return nil, fmt.Errorf("module_store.public_key is required")
 	}
+	keyPair, err := signing.LoadPublicKey(cfg.ModuleStore.PublicKeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("loading module public key: %w", err)
+	}
+	pemBytes, err := os.ReadFile(cfg.ModuleStore.PublicKeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("reading module public key: %w", err)
+	}
+	moduleKey = keyPair
+	moduleKeyPEM = pemBytes
+	log.WithField("key_id", keyPair.KeyID).Info("module signing public key loaded")
 
 	masterStore, err := store.New(&store.Config{
 		DBPath:   filepath.Join(cfg.DataDir, "master.db"),
@@ -81,12 +65,16 @@ func New(cfg *config.MasterConfig) (*Server, error) {
 		return nil, fmt.Errorf("initializing store: %w", err)
 	}
 
+	verifier := signing.NewModuleVerifier(moduleKey)
+	
 	s := &Server{
 		cfg:        cfg,
 		CA:         caInstance,
 		SessionMgr: session.NewSessionManager(&cfg.Sandbox),
 		Store:      masterStore,
-		Signer:     moduleSigner,
+		Verifier:   verifier,
+		ModuleKey:  moduleKey,
+		ModuleKeyPEM: moduleKeyPEM,
 	}
 
 	return s, nil
@@ -109,7 +97,7 @@ func (s *Server) Start() error {
 	handler := NewHandler(s.cfg, s.Store, s.CA, s.SessionMgr)
 	gimpelv1.RegisterAgentControlServer(s.grpcServer, handler)
 
-	catalogHandler := NewModuleCatalogHandler(s.Store, s.Signer)
+	catalogHandler := NewModuleCatalogHandler(s.Store)
 	gimpelv1.RegisterModuleCatalogServiceServer(s.grpcServer, catalogHandler)
 
 	log.WithField("address", s.cfg.ListenAddress).Info("master server starting")
@@ -119,6 +107,14 @@ func (s *Server) Start() error {
 			log.WithError(err).Error("server error")
 		}
 	}()
+
+	restAddr := ":8080"
+	if s.cfg.RESTAddress != "" {
+		restAddr = s.cfg.RESTAddress
+	}
+	if err := s.StartRESTServer(restAddr); err != nil {
+		return fmt.Errorf("starting REST server: %w", err)
+	}
 
 	return nil
 }

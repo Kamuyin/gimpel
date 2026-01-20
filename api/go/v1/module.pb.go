@@ -1267,6 +1267,8 @@ type VerifyModuleResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Valid         bool                   `protobuf:"varint,1,opt,name=valid,proto3" json:"valid,omitempty"`
 	Signature     []byte                 `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
+	SignedBy      string                 `protobuf:"bytes,3,opt,name=signed_by,json=signedBy,proto3" json:"signed_by,omitempty"`
+	SignedAt      int64                  `protobuf:"varint,4,opt,name=signed_at,json=signedAt,proto3" json:"signed_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1312,6 +1314,20 @@ func (x *VerifyModuleResponse) GetSignature() []byte {
 		return x.Signature
 	}
 	return nil
+}
+
+func (x *VerifyModuleResponse) GetSignedBy() string {
+	if x != nil {
+		return x.SignedBy
+	}
+	return ""
+}
+
+func (x *VerifyModuleResponse) GetSignedAt() int64 {
+	if x != nil {
+		return x.SignedAt
+	}
+	return 0
 }
 
 var File_v1_module_proto protoreflect.FileDescriptor
@@ -1428,10 +1444,12 @@ const file_v1_module_proto_rawDesc = "" +
 	"\x13VerifyModuleRequest\x12\x1b\n" +
 	"\tmodule_id\x18\x01 \x01(\tR\bmoduleId\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x16\n" +
-	"\x06digest\x18\x03 \x01(\tR\x06digest\"J\n" +
+	"\x06digest\x18\x03 \x01(\tR\x06digest\"\x84\x01\n" +
 	"\x14VerifyModuleResponse\x12\x14\n" +
 	"\x05valid\x18\x01 \x01(\bR\x05valid\x12\x1c\n" +
-	"\tsignature\x18\x02 \x01(\fR\tsignature2\xba\x01\n" +
+	"\tsignature\x18\x02 \x01(\fR\tsignature\x12\x1b\n" +
+	"\tsigned_by\x18\x03 \x01(\tR\bsignedBy\x12\x1b\n" +
+	"\tsigned_at\x18\x04 \x01(\x03R\bsignedAt2\xba\x01\n" +
 	"\rModuleService\x12[\n" +
 	"\x10HandleConnection\x12\".gimpel.v1.HandleConnectionRequest\x1a#.gimpel.v1.HandleConnectionResponse\x12L\n" +
 	"\vHealthCheck\x12\x1d.gimpel.v1.HealthCheckRequest\x1a\x1e.gimpel.v1.HealthCheckResponse2\xee\x02\n" +

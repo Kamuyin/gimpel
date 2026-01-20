@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"os"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -40,10 +41,6 @@ func NewHandler(
 }
 
 func (h *Handler) Register(ctx context.Context, req *gimpelv1.RegisterRequest) (*gimpelv1.RegisterResponse, error) {
-	if !h.validateToken(req.Token) {
-		return nil, fmt.Errorf("invalid registration token")
-	}
-
 	agentID, err := generateAgentID()
 	if err != nil {
 		return nil, fmt.Errorf("generating agent ID: %w", err)
@@ -80,11 +77,21 @@ func (h *Handler) Register(ctx context.Context, req *gimpelv1.RegisterRequest) (
 		"arch":     req.Arch,
 	}).Info("satellite registered")
 
+	caBundle := h.ca.CACertPEM()
+	if h.cfg.ModuleStore.PublicKeyFile != "" {
+		if pubKey, err := os.ReadFile(h.cfg.ModuleStore.PublicKeyFile); err == nil {
+			if len(caBundle) > 0 && caBundle[len(caBundle)-1] != '\n' {
+				caBundle = append(caBundle, '\n')
+			}
+			caBundle = append(caBundle, pubKey...)
+		}
+	}
+
 	return &gimpelv1.RegisterResponse{
 		AgentId:       agentID,
 		Certificate:   signedCert.Certificate,
 		PrivateKey:    signedCert.PrivateKey,
-		CaCertificate: h.ca.CACertPEM(),
+		CaCertificate: caBundle,
 	}, nil
 }
 
@@ -150,18 +157,6 @@ func (h *Handler) RequestHISession(ctx context.Context, req *gimpelv1.HISessionR
 		SandboxEndpoint: sess.SandboxEndpoint,
 		TunnelKey:       sess.TunnelKey,
 	}, nil
-}
-
-func (h *Handler) validateToken(token string) bool {
-	if len(h.cfg.RegistrationTokens) == 0 {
-		return true
-	}
-	for _, t := range h.cfg.RegistrationTokens {
-		if t == token {
-			return true
-		}
-	}
-	return false
 }
 
 func generateAgentID() (string, error) {

@@ -12,7 +12,6 @@ type TLSConfig struct {
 	CertFile   string `mapstructure:"cert_file"`
 	KeyFile    string `mapstructure:"key_file"`
 	CAFile     string `mapstructure:"ca_file"`
-	SkipVerify bool   `mapstructure:"skip_verify"`
 }
 
 type ControlPlaneConfig struct {
@@ -97,7 +96,6 @@ type AgentConfig struct {
 	AgentID           string        `mapstructure:"agent_id"`
 	DataDir           string        `mapstructure:"data_dir"`
 	HeartbeatInterval time.Duration `mapstructure:"heartbeat_interval"`
-	RegistrationToken string        `mapstructure:"registration_token"`
 
 	ControlPlane ControlPlaneConfig `mapstructure:"control_plane"`
 	Gateway      GatewayConfig      `mapstructure:"gateway"`
@@ -129,6 +127,9 @@ func (c *AgentConfig) Validate() error {
 	}
 	if c.Gateway.MaxBufferBytes == 0 {
 		c.Gateway.MaxBufferBytes = 100 * 1024 * 1024
+	}
+	if c.Runtime.TrustedKeyFile == "" {
+		c.Runtime.TrustedKeyFile = c.DataDir + "/module-signing.pub"
 	}
 
 	for i := range c.Modules {

@@ -36,15 +36,13 @@ type SandboxConfig struct {
 
 type ModuleStoreConfig struct {
 	DataDir        string `mapstructure:"data_dir"`
-	SigningKeyFile string `mapstructure:"signing_key"`
 	PublicKeyFile  string `mapstructure:"public_key"`
-	AutoSign       bool   `mapstructure:"auto_sign"`
 }
 
 type MasterConfig struct {
 	ListenAddress      string   `mapstructure:"listen_address"`
+	RESTAddress        string   `mapstructure:"rest_address"`
 	DataDir            string   `mapstructure:"data_dir"`
-	RegistrationTokens []string `mapstructure:"registration_tokens"`
 
 	TLS         TLSConfig         `mapstructure:"tls"`
 	CA          CAConfig          `mapstructure:"ca"`
@@ -84,9 +82,6 @@ func (c *MasterConfig) Validate() error {
 
 	if c.ModuleStore.DataDir == "" {
 		c.ModuleStore.DataDir = c.DataDir + "/modules"
-	}
-	if c.ModuleStore.SigningKeyFile == "" {
-		c.ModuleStore.SigningKeyFile = c.DataDir + "/signing.key"
 	}
 	if c.ModuleStore.PublicKeyFile == "" {
 		c.ModuleStore.PublicKeyFile = c.DataDir + "/signing.pub"

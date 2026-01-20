@@ -9,8 +9,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-
 	gimpelv1 "gimpel/api/go/v1"
 	"gimpel/internal/agent/config"
 )
@@ -50,15 +48,11 @@ func (c *Client) Connect(ctx context.Context) error {
 	var opts []grpc.DialOption
 
 	tlsCfg := c.cfg.ControlPlane.TLS
-	if tlsCfg.CertFile != "" && tlsCfg.KeyFile != "" {
-		creds, err := LoadClientCredentials(tlsCfg.CertFile, tlsCfg.KeyFile, tlsCfg.CAFile, tlsCfg.SkipVerify)
-		if err != nil {
-			return fmt.Errorf("loading TLS credentials: %w", err)
-		}
-		opts = append(opts, grpc.WithTransportCredentials(creds))
-	} else {
-		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	creds, err := LoadClientCredentials(tlsCfg.CertFile, tlsCfg.KeyFile, tlsCfg.CAFile)
+	if err != nil {
+		return fmt.Errorf("loading TLS credentials: %w", err)
 	}
+	opts = append(opts, grpc.WithTransportCredentials(creds))
 
 	conn, err := grpc.NewClient(c.cfg.ControlPlane.Address, opts...)
 	if err != nil {
@@ -94,7 +88,7 @@ type Identity interface {
 	GetPublicIPs() []string
 }
 
-func (c *Client) Register(ctx context.Context, token string, identity Identity) (*RegisterResponse, error) {
+func (c *Client) Register(ctx context.Context, identity Identity) (*RegisterResponse, error) {
 	c.mu.RLock()
 	ctrl := c.ctrl
 	c.mu.RUnlock()
@@ -104,7 +98,6 @@ func (c *Client) Register(ctx context.Context, token string, identity Identity) 
 	}
 
 	resp, err := ctrl.Register(ctx, &gimpelv1.RegisterRequest{
-		Token:     token,
 		Hostname:  identity.GetHostname(),
 		PublicIps: identity.GetPublicIPs(),
 		Os:        runtime.GOOS,

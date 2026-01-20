@@ -180,6 +180,8 @@ message VerifyModuleRequest {
 message VerifyModuleResponse {
   bool valid = 1;                         // True if digest matches
   bytes signature = 2;                    // Module signature for verification
+  string signed_by = 3;                   // Key ID that signed this module
+  int64 signed_at = 4;                    // Unix timestamp when signed
 }
 
 service ModuleCatalogService {

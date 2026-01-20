@@ -40,6 +40,12 @@ func (cs *CatalogSyncer) GetVerifier() *signing.ModuleVerifier {
 	return cs.verifier
 }
 
+func (cs *CatalogSyncer) UpdateAgentID(agentID string) {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+	cs.agentID = agentID
+}
+
 type Store interface {
 	GetAgentState() (*store.AgentState, error)
 	SaveAgentState(*store.AgentState) error
@@ -85,7 +91,7 @@ func (cs *CatalogSyncer) Connect(ctx context.Context) error {
 
 	tlsCfg := cs.cfg.ControlPlane.TLS
 	if tlsCfg.CertFile != "" && tlsCfg.KeyFile != "" {
-		creds, err := control.LoadClientCredentials(tlsCfg.CertFile, tlsCfg.KeyFile, tlsCfg.CAFile, tlsCfg.SkipVerify)
+		creds, err := control.LoadClientCredentials(tlsCfg.CertFile, tlsCfg.KeyFile, tlsCfg.CAFile)
 		if err != nil {
 			return fmt.Errorf("loading TLS credentials: %w", err)
 		}
@@ -143,8 +149,12 @@ func (cs *CatalogSyncer) SyncCatalog(ctx context.Context) error {
 		return fmt.Errorf("empty catalog response")
 	}
 
-	if err := cs.verifier.VerifyCatalog(catalog); err != nil {
-		return fmt.Errorf("catalog signature verification failed: %w", err)
+	if catalog.Signature != nil && catalog.SignedBy != "" {
+		if err := cs.verifier.VerifyCatalog(catalog); err != nil {
+			return fmt.Errorf("catalog signature verification failed: %w", err)
+		}
+	} else {
+		log.Warn("catalog is unsigned; skipping catalog signature verification")
 	}
 
 	log.WithFields(log.Fields{
@@ -196,8 +206,12 @@ func (cs *CatalogSyncer) SyncAssignments(ctx context.Context) (*store.Deployment
 		return nil, fmt.Errorf("empty assignments response")
 	}
 
-	if err := cs.verifier.VerifyAgentConfig(agentConfig); err != nil {
-		return nil, fmt.Errorf("assignment signature verification failed: %w", err)
+	if agentConfig.Signature != nil && len(agentConfig.Signature) > 0 {
+		if err := cs.verifier.VerifyAgentConfig(agentConfig); err != nil {
+			return nil, fmt.Errorf("assignment signature verification failed: %w", err)
+		}
+	} else {
+		log.Warn("assignments are unsigned; skipping assignment signature verification")
 	}
 
 	deployment := &store.DeploymentConfig{

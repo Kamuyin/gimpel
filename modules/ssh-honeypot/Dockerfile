@@ -3,11 +3,12 @@ FROM golang:1.24-alpine AS builder
 
 WORKDIR /build
 
-# Copy module files
-COPY go.mod go.sum* ./
-RUN go mod download
+# Copy entire gimpel project
+COPY . /build
 
-COPY . .
+# Navigate to ssh-honeypot and download deps
+WORKDIR /build/modules/ssh-honeypot
+RUN go mod download
 
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o ssh-honeypot .
@@ -19,9 +20,10 @@ RUN apk --no-cache add ca-certificates
 
 WORKDIR /app
 
-COPY --from=builder /build/ssh-honeypot .
+COPY --from=builder /build/modules/ssh-honeypot/ssh-honeypot .
 
 # Create directory for socket
 RUN mkdir -p /run/gimpel
 
 ENTRYPOINT ["/app/ssh-honeypot"]
+

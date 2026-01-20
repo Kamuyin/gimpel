@@ -10,7 +10,6 @@ import (
 
 	gimpelv1 "gimpel/api/go/v1"
 	"gimpel/internal/master/store"
-	"gimpel/pkg/signing"
 )
 
 const (
@@ -21,13 +20,11 @@ type ModuleCatalogHandler struct {
 	gimpelv1.UnimplementedModuleCatalogServiceServer
 
 	store  *store.Store
-	signer *signing.ModuleSigner
 }
 
-func NewModuleCatalogHandler(s *store.Store, signer *signing.ModuleSigner) *ModuleCatalogHandler {
+func NewModuleCatalogHandler(s *store.Store) *ModuleCatalogHandler {
 	return &ModuleCatalogHandler{
 		store:  s,
-		signer: signer,
 	}
 }
 
@@ -53,12 +50,6 @@ func (h *ModuleCatalogHandler) GetCatalog(ctx context.Context, req *gimpelv1.Get
 			SignedAt:  mod.SignedAt.Unix(),
 			SizeBytes: mod.SizeBytes,
 		})
-	}
-
-	if h.signer != nil {
-		if err := h.signer.SignCatalog(catalog); err != nil {
-			log.WithError(err).Warn("failed to sign catalog")
-		}
 	}
 
 	log.WithFields(log.Fields{
@@ -115,12 +106,6 @@ func (h *ModuleCatalogHandler) GetModuleAssignments(ctx context.Context, req *gi
 			Listeners:     listeners,
 			Env:           mod.Env,
 		})
-	}
-
-	if h.signer != nil {
-		if err := h.signer.SignAgentConfig(config); err != nil {
-			log.WithError(err).Warn("failed to sign agent config")
-		}
 	}
 
 	log.WithFields(log.Fields{
@@ -192,8 +177,15 @@ func (h *ModuleCatalogHandler) VerifyModule(ctx context.Context, req *gimpelv1.V
 		sig = mod.Signature
 	}
 
-	return &gimpelv1.VerifyModuleResponse{
+	resp := &gimpelv1.VerifyModuleResponse{
 		Valid:     true,
 		Signature: sig,
-	}, nil
+	}
+	
+	if mod != nil {
+		resp.SignedBy = mod.SignedBy
+		resp.SignedAt = mod.SignedAt.Unix()
+	}
+	
+	return resp, nil
 }
