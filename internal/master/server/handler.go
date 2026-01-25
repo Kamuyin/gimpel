@@ -41,6 +41,18 @@ func NewHandler(
 }
 
 func (h *Handler) Register(ctx context.Context, req *gimpelv1.RegisterRequest) (*gimpelv1.RegisterResponse, error) {
+	if req.Token == "" {
+		return nil, fmt.Errorf("pairing token is required")
+	}
+
+	pr, err := h.store.GetPairingByToken(req.Token)
+	if err != nil {
+		return nil, fmt.Errorf("checking pairing token: %w", err)
+	}
+	if pr == nil || pr.Used || time.Now().After(pr.ExpiresAt) {
+		return nil, fmt.Errorf("pairing token is invalid or expired")
+	}
+
 	agentID, err := generateAgentID()
 	if err != nil {
 		return nil, fmt.Errorf("generating agent ID: %w", err)
@@ -76,6 +88,10 @@ func (h *Handler) Register(ctx context.Context, req *gimpelv1.RegisterRequest) (
 		"os":       req.Os,
 		"arch":     req.Arch,
 	}).Info("satellite registered")
+
+	if err := h.store.MarkPairingUsed(pr.ID, agentID); err != nil {
+		log.WithError(err).Warn("failed to mark pairing as used")
+	}
 
 	caBundle := h.ca.CACertPEM()
 	if h.cfg.ModuleStore.PublicKeyFile != "" {

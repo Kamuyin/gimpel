@@ -96,6 +96,8 @@ type AgentConfig struct {
 	AgentID           string        `mapstructure:"agent_id"`
 	DataDir           string        `mapstructure:"data_dir"`
 	HeartbeatInterval time.Duration `mapstructure:"heartbeat_interval"`
+	PairingMode       bool          `mapstructure:"pairing_mode"`
+	PairingToken      string        `mapstructure:"pairing_token"`
 
 	ControlPlane ControlPlaneConfig `mapstructure:"control_plane"`
 	Gateway      GatewayConfig      `mapstructure:"gateway"`
@@ -127,6 +129,9 @@ func (c *AgentConfig) Validate() error {
 	}
 	if c.Gateway.MaxBufferBytes == 0 {
 		c.Gateway.MaxBufferBytes = 100 * 1024 * 1024
+	}
+	if c.PairingMode && c.PairingToken == "" {
+		return fmt.Errorf("pairing_token is required when pairing_mode is enabled")
 	}
 	if c.Runtime.TrustedKeyFile == "" {
 		c.Runtime.TrustedKeyFile = c.DataDir + "/module-signing.pub"

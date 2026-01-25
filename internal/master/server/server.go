@@ -3,6 +3,8 @@ package server
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -32,6 +34,8 @@ type Server struct {
 	Verifier   *signing.ModuleVerifier
 	ModuleKey  *signing.KeyPair
 	ModuleKeyPEM []byte
+	ModuleKeyPrivatePEM []byte
+	ModuleKeyPrivateServed bool
 }
 
 func New(cfg *config.MasterConfig) (*Server, error) {
@@ -42,20 +46,50 @@ func New(cfg *config.MasterConfig) (*Server, error) {
 
 	var moduleKey *signing.KeyPair
 	var moduleKeyPEM []byte
+	var moduleKeyPrivatePEM []byte
 	if cfg.ModuleStore.PublicKeyFile == "" {
 		return nil, fmt.Errorf("module_store.public_key is required")
 	}
 	keyPair, err := signing.LoadPublicKey(cfg.ModuleStore.PublicKeyFile)
 	if err != nil {
-		return nil, fmt.Errorf("loading module public key: %w", err)
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("loading module public key: %w", err)
+		}
+
+		log.Info("module signing public key not found, generating new key pair")
+		kp, err := signing.GenerateKeyPair()
+		if err != nil {
+			return nil, fmt.Errorf("generating module signing key: %w", err)
+		}
+		if err := os.MkdirAll(filepath.Dir(cfg.ModuleStore.PublicKeyFile), 0755); err != nil {
+			return nil, fmt.Errorf("creating key directory: %w", err)
+		}
+		if err := kp.SavePublicKey(cfg.ModuleStore.PublicKeyFile); err != nil {
+			return nil, fmt.Errorf("saving public key: %w", err)
+		}
+		moduleKeyPrivatePEM = pem.EncodeToMemory(&pem.Block{
+			Type:  signing.PrivateKeyPEMType,
+			Bytes: kp.PrivateKey,
+			Headers: map[string]string{
+				"Key-ID": kp.KeyID,
+			},
+		})
+		moduleKey = &signing.KeyPair{PublicKey: kp.PublicKey, KeyID: kp.KeyID}
+		pemBytes, err := os.ReadFile(cfg.ModuleStore.PublicKeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("reading module public key: %w", err)
+		}
+		moduleKeyPEM = pemBytes
+		log.WithField("key_id", kp.KeyID).Info("module signing public key generated")
+	} else {
+		pemBytes, err := os.ReadFile(cfg.ModuleStore.PublicKeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("reading module public key: %w", err)
+		}
+		moduleKey = keyPair
+		moduleKeyPEM = pemBytes
+		log.WithField("key_id", keyPair.KeyID).Info("module signing public key loaded")
 	}
-	pemBytes, err := os.ReadFile(cfg.ModuleStore.PublicKeyFile)
-	if err != nil {
-		return nil, fmt.Errorf("reading module public key: %w", err)
-	}
-	moduleKey = keyPair
-	moduleKeyPEM = pemBytes
-	log.WithField("key_id", keyPair.KeyID).Info("module signing public key loaded")
 
 	masterStore, err := store.New(&store.Config{
 		DBPath:   filepath.Join(cfg.DataDir, "master.db"),
@@ -75,6 +109,7 @@ func New(cfg *config.MasterConfig) (*Server, error) {
 		Verifier:   verifier,
 		ModuleKey:  moduleKey,
 		ModuleKeyPEM: moduleKeyPEM,
+		ModuleKeyPrivatePEM: moduleKeyPrivatePEM,
 	}
 
 	return s, nil

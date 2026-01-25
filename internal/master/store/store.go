@@ -18,6 +18,8 @@ const (
 	BucketSessions    = "sessions"
 	BucketEvents      = "events"
 	BucketSettings    = "settings"
+	BucketPairings    = "pairings"
+	BucketPairingTokens = "pairing_tokens"
 )
 
 type Store struct {
@@ -40,6 +42,8 @@ func New(cfg *Config) (*Store, error) {
 		BucketSessions,
 		BucketEvents,
 		BucketSettings,
+		BucketPairings,
+		BucketPairingTokens,
 	}
 
 	db, err := storage.Open(opts)

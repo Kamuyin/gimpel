@@ -295,3 +295,26 @@ func (ma *ModuleAPI) HandleDownloadModule(w http.ResponseWriter, r *http.Request
 		log.WithError(err).Error("failed to write module image")
 	}
 }
+
+func (ma *ModuleAPI) HandleDeleteModule(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	id := r.PathValue("id")
+	version := r.PathValue("version")
+
+	if id == "" || version == "" {
+		http.Error(w, "id and version are required", http.StatusBadRequest)
+		return
+	}
+
+	if err := ma.store.DeleteModule(id, version); err != nil {
+		http.Error(w, fmt.Sprintf("failed to delete module: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
+}

@@ -2,7 +2,6 @@ package server
 
 import (
 	"net/http"
-	"strings"
 
 	log "github.com/sirupsen/logrus"
 
@@ -12,6 +11,7 @@ import (
 func (s *Server) RegisterRESTAPIs(mux *http.ServeMux) {
 	moduleAPI := api.NewModuleAPI(s.Store, s.Verifier, s.ModuleKey)
 	deploymentAPI := api.NewDeploymentAPI(s.Store)
+	pairingAPI := api.NewPairingAPI(s.Store)
 
 	corsMiddleware := func(h http.HandlerFunc) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -32,6 +32,7 @@ func (s *Server) RegisterRESTAPIs(mux *http.ServeMux) {
 	mux.Handle("GET /api/v1/modules", corsMiddleware(moduleAPI.HandleListModules))
 	mux.Handle("GET /api/v1/modules/{id}/{version}", corsMiddleware(moduleAPI.HandleGetModule))
 	mux.Handle("GET /api/v1/modules/{id}/{version}/download", corsMiddleware(moduleAPI.HandleDownloadModule))
+	mux.Handle("DELETE /api/v1/modules/{id}/{version}", corsMiddleware(moduleAPI.HandleDeleteModule))
 
 	mux.Handle("POST /api/v1/satellites/{id}/deployments", corsMiddleware(deploymentAPI.HandleCreateDeployment))
 	mux.Handle("GET /api/v1/satellites/{id}/deployments", corsMiddleware(deploymentAPI.HandleGetDeployment))
@@ -42,6 +43,24 @@ func (s *Server) RegisterRESTAPIs(mux *http.ServeMux) {
 
 	mux.Handle("GET /api/v1/deployments", corsMiddleware(deploymentAPI.HandleListDeployments))
 
+	mux.Handle("POST /api/v1/pairings", corsMiddleware(pairingAPI.HandleCreatePairing))
+
+	mux.Handle("GET /api/v1/module-signing-key", corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		if s.ModuleKeyPrivateServed || len(s.ModuleKeyPrivatePEM) == 0 {
+			http.Error(w, "not available", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/x-pem-file")
+		w.Header().Set("Content-Disposition", "attachment; filename=module-signing.key")
+		w.Write(s.ModuleKeyPrivatePEM)
+		s.ModuleKeyPrivatePEM = nil
+		s.ModuleKeyPrivateServed = true
+	}))
+
 	log.Info("REST API handlers registered")
 }
 
@@ -50,15 +69,7 @@ func (s *Server) StartRESTServer(address string) error {
 
 	s.RegisterRESTAPIs(mux)
 
-	mux.HandleFunc("GET /{path...}", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/" || !strings.Contains(r.URL.Path, ".") {
-			r.URL.Path = "/index.html"
-		}
-
-		w.Header().Set("Content-Type", "text/plain")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("WebUI not yet integrated"))
-	})
+	mux.Handle("GET /{path...}", webUIHandler())
 
 	log.WithField("address", address).Info("REST API server starting")
 

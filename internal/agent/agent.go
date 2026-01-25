@@ -110,6 +110,9 @@ func (a *Agent) Run(ctx context.Context) error {
 	defer a.controlClient.Close()
 
 	if !a.identity.Registered {
+		if !a.cfg.PairingMode {
+			return fmt.Errorf("pairing_mode is required to register a new agent")
+		}
 		if err := a.register(ctx); err != nil {
 			return fmt.Errorf("registration failed: %w", err)
 		}
@@ -199,7 +202,7 @@ func (a *Agent) Shutdown(ctx context.Context) error {
 func (a *Agent) register(ctx context.Context) error {
 	log.Info("registering with control plane")
 
-	resp, err := a.controlClient.Register(ctx, a.identity)
+	resp, err := a.controlClient.Register(ctx, a.cfg.PairingToken, a.identity)
 	if err != nil {
 		return err
 	}

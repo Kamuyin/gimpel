@@ -88,7 +88,7 @@ type Identity interface {
 	GetPublicIPs() []string
 }
 
-func (c *Client) Register(ctx context.Context, identity Identity) (*RegisterResponse, error) {
+func (c *Client) Register(ctx context.Context, token string, identity Identity) (*RegisterResponse, error) {
 	c.mu.RLock()
 	ctrl := c.ctrl
 	c.mu.RUnlock()
@@ -98,6 +98,7 @@ func (c *Client) Register(ctx context.Context, identity Identity) (*RegisterResp
 	}
 
 	resp, err := ctrl.Register(ctx, &gimpelv1.RegisterRequest{
+		Token:     token,
 		Hostname:  identity.GetHostname(),
 		PublicIps: identity.GetPublicIPs(),
 		Os:        runtime.GOOS,
