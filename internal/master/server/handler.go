@@ -89,7 +89,7 @@ func (h *Handler) Register(ctx context.Context, req *gimpelv1.RegisterRequest) (
 		"arch":     req.Arch,
 	}).Info("satellite registered")
 
-	if err := h.store.MarkPairingUsed(pr.ID, agentID); err != nil {
+	if err := h.store.MarkPairingUsed(pr.ID, agentID, req.Hostname); err != nil {
 		log.WithError(err).Warn("failed to mark pairing as used")
 	}
 

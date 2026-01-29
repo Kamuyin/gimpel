@@ -3,8 +3,6 @@ package server
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/pem"
-	"errors"
 	"fmt"
 	"net"
 	"os"

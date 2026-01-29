@@ -66,6 +66,31 @@ func (c *Client) Connect(ctx context.Context) error {
 	return nil
 }
 
+func (c *Client) ConnectInsecure(ctx context.Context) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	var opts []grpc.DialOption
+
+	tlsCfg := c.cfg.ControlPlane.TLS
+	creds, err := LoadClientCredentials("", "", tlsCfg.CAFile)
+	if err != nil {
+		return fmt.Errorf("loading TLS credentials: %w", err)
+	}
+	opts = append(opts, grpc.WithTransportCredentials(creds))
+
+	conn, err := grpc.NewClient(c.cfg.ControlPlane.Address, opts...)
+	if err != nil {
+		return fmt.Errorf("dialing control plane: %w", err)
+	}
+
+	c.conn = conn
+	c.ctrl = gimpelv1.NewAgentControlClient(conn)
+
+	log.WithField("address", c.cfg.ControlPlane.Address).Info("connected to control plane (pairing mode)")
+	return nil
+}
+
 func (c *Client) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()

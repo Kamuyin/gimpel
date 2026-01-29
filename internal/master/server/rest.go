@@ -44,6 +44,8 @@ func (s *Server) RegisterRESTAPIs(mux *http.ServeMux) {
 	mux.Handle("GET /api/v1/deployments", corsMiddleware(deploymentAPI.HandleListDeployments))
 
 	mux.Handle("POST /api/v1/pairings", corsMiddleware(pairingAPI.HandleCreatePairing))
+	mux.Handle("GET /api/v1/pairings", corsMiddleware(pairingAPI.HandleListPairings))
+	mux.Handle("GET /api/v1/pairings/active", corsMiddleware(pairingAPI.HandleGetActivePairings))
 
 	log.Info("REST API handlers registered")
 }
@@ -52,8 +54,6 @@ func (s *Server) StartRESTServer(address string) error {
 	mux := http.NewServeMux()
 
 	s.RegisterRESTAPIs(mux)
-
-	//mux.Handle("GET /{path...}", webUIHandler())
 
 	log.WithField("address", address).Info("REST API server starting")
 

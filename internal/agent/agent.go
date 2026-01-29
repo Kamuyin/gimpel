@@ -199,6 +199,30 @@ func (a *Agent) Shutdown(ctx context.Context) error {
 	return nil
 }
 
+func (a *Agent) RunPairing(ctx context.Context) error {
+	log.WithFields(log.Fields{
+		"hostname": a.identity.Hostname,
+		"master":   a.cfg.ControlPlane.Address,
+	}).Info("starting pairing process")
+
+	if a.identity.Registered {
+		log.Warn("agent is already registered - re-pairing will replace existing credentials")
+	}
+
+	// Connect to control plane
+	if err := a.controlClient.ConnectInsecure(ctx); err != nil {
+		return fmt.Errorf("connecting to control plane: %w", err)
+	}
+	defer a.controlClient.Close()
+
+	if err := a.register(ctx); err != nil {
+		return fmt.Errorf("registration failed: %w", err)
+	}
+
+	log.WithField("agent_id", a.identity.ID).Info("pairing completed successfully")
+	return nil
+}
+
 func (a *Agent) register(ctx context.Context) error {
 	log.Info("registering with control plane")
 

@@ -11,7 +11,7 @@ import (
 
 func LoadClientCredentials(certFile, keyFile, caFile string) (credentials.TransportCredentials, error) {
 	if caFile == "" {
-		return nil, fmt.Errorf("ca_file is required for TLS verification")
+		return nil, fmt.Errorf("CA certificate is required for TLS")
 	}
 
 	caCert, err := os.ReadFile(caFile)
