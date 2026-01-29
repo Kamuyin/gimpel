@@ -45,22 +45,6 @@ func (s *Server) RegisterRESTAPIs(mux *http.ServeMux) {
 
 	mux.Handle("POST /api/v1/pairings", corsMiddleware(pairingAPI.HandleCreatePairing))
 
-	mux.Handle("GET /api/v1/module-signing-key", corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		if s.ModuleKeyPrivateServed || len(s.ModuleKeyPrivatePEM) == 0 {
-			http.Error(w, "not available", http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/x-pem-file")
-		w.Header().Set("Content-Disposition", "attachment; filename=module-signing.key")
-		w.Write(s.ModuleKeyPrivatePEM)
-		s.ModuleKeyPrivatePEM = nil
-		s.ModuleKeyPrivateServed = true
-	}))
-
 	log.Info("REST API handlers registered")
 }
 

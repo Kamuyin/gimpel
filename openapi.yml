@@ -301,22 +301,6 @@ paths:
         '500':
           description: Server error
 
-  /api/v1/module-signing-key:
-    get:
-      summary: Get module signing key
-      operationId: getModuleSigningKey
-      description: One-time download of private signing key
-      responses:
-        '200':
-          description: Private key file
-          content:
-            application/x-pem-file:
-              schema:
-                type: string
-                format: binary
-        '404':
-          description: Key not available
-
 components:
   schemas:
     UploadModuleResponse:
