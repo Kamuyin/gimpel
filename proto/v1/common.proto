@@ -22,6 +22,7 @@ message HeartbeatRequest {
 
 message HeartbeatResponse {
   bool ok = 1;
+  
   // If true, the agent should request a config update
   bool config_stale = 2;
 }

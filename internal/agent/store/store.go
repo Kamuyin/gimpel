@@ -1,4 +1,3 @@
-// Package store provides the agent's persistent storage layer using bbolt.
 package store
 
 import (
@@ -93,12 +92,12 @@ type Container struct {
 type ContainerStatus string
 
 const (
-	ContainerStatusPending   ContainerStatus = "pending"
-	ContainerStatusStarting  ContainerStatus = "starting"
-	ContainerStatusRunning   ContainerStatus = "running"
-	ContainerStatusStopping  ContainerStatus = "stopping"
-	ContainerStatusStopped   ContainerStatus = "stopped"
-	ContainerStatusFailed    ContainerStatus = "failed"
+	ContainerStatusPending    ContainerStatus = "pending"
+	ContainerStatusStarting   ContainerStatus = "starting"
+	ContainerStatusRunning    ContainerStatus = "running"
+	ContainerStatusStopping   ContainerStatus = "stopping"
+	ContainerStatusStopped    ContainerStatus = "stopped"
+	ContainerStatusFailed     ContainerStatus = "failed"
 	ContainerStatusRestarting ContainerStatus = "restarting"
 )
 
@@ -121,11 +120,11 @@ type AgentState struct {
 }
 
 type DeploymentConfig struct {
-	Version     int64              `json:"version"`
-	Modules     []ModuleDeployment `json:"modules"`
-	Signature   []byte             `json:"signature"`
-	SignedBy    string             `json:"signed_by"`
-	ReceivedAt  time.Time          `json:"received_at"`
+	Version    int64              `json:"version"`
+	Modules    []ModuleDeployment `json:"modules"`
+	Signature  []byte             `json:"signature"`
+	SignedBy   string             `json:"signed_by"`
+	ReceivedAt time.Time          `json:"received_at"`
 }
 
 type ModuleDeployment struct {

@@ -69,7 +69,7 @@ func (s *Server) StartRESTServer(address string) error {
 
 	s.RegisterRESTAPIs(mux)
 
-	mux.Handle("GET /{path...}", webUIHandler())
+	//mux.Handle("GET /{path...}", webUIHandler())
 
 	log.WithField("address", address).Info("REST API server starting")
 

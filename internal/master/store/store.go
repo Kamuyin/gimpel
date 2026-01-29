@@ -1,4 +1,3 @@
-// Package store provides the master's persistent storage layer using bbolt.
 package store
 
 import (
@@ -11,14 +10,14 @@ import (
 )
 
 const (
-	BucketSatellites  = "satellites"
-	BucketModules     = "modules"
-	BucketImages      = "images"
-	BucketDeployments = "deployments"
-	BucketSessions    = "sessions"
-	BucketEvents      = "events"
-	BucketSettings    = "settings"
-	BucketPairings    = "pairings"
+	BucketSatellites    = "satellites"
+	BucketModules       = "modules"
+	BucketImages        = "images"
+	BucketDeployments   = "deployments"
+	BucketSessions      = "sessions"
+	BucketEvents        = "events"
+	BucketSettings      = "settings"
+	BucketPairings      = "pairings"
 	BucketPairingTokens = "pairing_tokens"
 )
 

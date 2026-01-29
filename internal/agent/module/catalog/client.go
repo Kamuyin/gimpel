@@ -1,4 +1,3 @@
-// Package catalog provides client-side functionality for fetching
 package catalog
 
 import (
