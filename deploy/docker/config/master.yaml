@@ -2,10 +2,14 @@ listen_address: ":9090"
 rest_address: ":8080"
 data_dir: "/var/lib/gimpel-master"
 
-tls: {}
+tls:
+  cert_file: "/var/lib/gimpel-certs/master.crt"
+  key_file: "/var/lib/gimpel-certs/master.key"
 
 ca:
-  auto_generate: true
+  cert_file: "/var/lib/gimpel-certs/ca.crt"
+  key_file: "/var/lib/gimpel-certs/ca.key"
+  auto_generate: false
 
 registry:
   stale_timeout: 5m

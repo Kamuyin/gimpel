@@ -6,11 +6,13 @@ pairing_token: ""
 
 control_plane:
   address: "master:9090"
-  tls: {}
+  tls:
+    ca_file: "/var/lib/gimpel-certs/ca.crt"
 
 gateway:
   address: "gateway:8081"
-  tls: {}
+  tls:
+    ca_file: "/var/lib/gimpel-certs/ca.crt"
   flush_interval: 5s
   batch_size: 100
   buffer_path: "/var/lib/gimpel/events"

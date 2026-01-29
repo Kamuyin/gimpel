@@ -1,6 +1,8 @@
 listen_address: ":8081"
 log_level: "info"
 
-tls: {}
+tls:
+  cert_file: "/var/lib/gimpel-certs/gateway.crt"
+  key_file: "/var/lib/gimpel-certs/gateway.key"
 
 flush_interval: 5s

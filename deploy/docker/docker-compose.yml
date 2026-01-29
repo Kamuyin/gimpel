@@ -1,16 +1,67 @@
 version: "3.9"
 
 services:
-  signing-init:
+  bootstrap-init:
     build:
       context: ../..
       dockerfile: deploy/docker/Dockerfile.tools
     image: gimpel-tools:dev
     entrypoint: ["/bin/sh", "-ec"]
     command:
-      - "test -f /keys/signing.pub || /app/gimpel-sign generate-key --output /keys --name signing"
+      - |
+        if [ ! -f /keys/signing.pub ]; then
+          /app/gimpel-sign generate-key --output /keys --name signing
+        fi
+        if [ ! -f /certs/ca.crt ]; then
+          openssl genrsa -traditional -out /certs/ca.key 2048;
+          openssl req -x509 -new -key /certs/ca.key \
+            -out /certs/ca.crt -days 3650 -subj "/CN=gimpel-ca";
+        fi
+        if [ ! -f /certs/master.key ]; then
+          openssl genrsa -traditional -out /certs/master.key 2048;
+          openssl req -new -key /certs/master.key \
+            -out /certs/master.csr -subj "/CN=master";
+          printf "subjectAltName=DNS:master\nextendedKeyUsage=serverAuth\n" > /certs/master.ext;
+          openssl x509 -req -in /certs/master.csr \
+            -CA /certs/ca.crt -CAkey /certs/ca.key -CAcreateserial \
+            -out /certs/master.crt -days 3650 -sha256 \
+            -extfile /certs/master.ext;
+          rm -f /certs/master.csr /certs/master.ext /certs/ca.srl;
+        fi
+        if [ ! -f /certs/gateway.key ]; then
+          openssl genrsa -traditional -out /certs/gateway.key 2048;
+          openssl req -new -key /certs/gateway.key \
+            -out /certs/gateway.csr -subj "/CN=gateway";
+          printf "subjectAltName=DNS:gateway\nextendedKeyUsage=serverAuth\n" > /certs/gateway.ext;
+          openssl x509 -req -in /certs/gateway.csr \
+            -CA /certs/ca.crt -CAkey /certs/ca.key -CAcreateserial \
+            -out /certs/gateway.crt -days 3650 -sha256 \
+            -extfile /certs/gateway.ext;
+          rm -f /certs/gateway.csr /certs/gateway.ext /certs/ca.srl;
+        fi
+        TOKEN=""
+        while [ -z "$$TOKEN" ]; do
+          RESP=$(curl -sf -X POST http://master:8080/api/v1/pairings \
+            -H 'Content-Type: application/json' \
+            -d '{"ttl_seconds":600}') || true
+          if [ -n "$$RESP" ]; then
+            TOKEN=$(printf '%s' "$$RESP" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+            if [ -z "$$TOKEN" ]; then
+              echo "pairing response: $$RESP" >&2
+            fi
+          fi
+          if [ -z "$$TOKEN" ]; then
+            sleep 1
+          fi
+        done
+        mkdir -p /pairing
+        echo "$$TOKEN" > /pairing/token
     volumes:
       - signing-keys:/keys
+      - tls-certs:/certs
+      - pairing-token:/pairing
+    networks:
+      - gimpel
     restart: "no"
 
   master:
@@ -18,16 +69,24 @@ services:
       context: ../..
       dockerfile: deploy/docker/Dockerfile.master
     image: gimpel-master:dev
-    depends_on:
-      - signing-init
     ports:
       - "9090:9090"
       - "8080:8080"
     volumes:
       - master-data:/var/lib/gimpel-master
       - signing-keys:/var/lib/gimpel-master/keys
+      - tls-certs:/var/lib/gimpel-certs:ro
       - ./config/master.yaml:/etc/gimpel/master.yaml:ro
-    command: ["/app/gimpel-master", "-config", "/etc/gimpel/master.yaml"]
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        while [ ! -f /var/lib/gimpel-master/keys/signing.pub ] || \
+              [ ! -f /var/lib/gimpel-certs/ca.crt ] || \
+              [ ! -f /var/lib/gimpel-certs/master.crt ] || \
+              [ ! -f /var/lib/gimpel-certs/master.key ]; do
+          sleep 1
+        done
+        exec /app/gimpel-master -config /etc/gimpel/master.yaml
     networks:
       - gimpel
 
@@ -45,7 +104,15 @@ services:
     volumes:
       - ./config/gateway.yaml:/etc/gimpel/gateway.yaml:ro
       - master-data:/var/lib/gimpel-master:ro
-    command: ["/app/gimpel-gateway", "-config", "/etc/gimpel/gateway.yaml"]
+      - tls-certs:/var/lib/gimpel-certs:ro
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        while [ ! -f /var/lib/gimpel-certs/gateway.crt ] || \
+              [ ! -f /var/lib/gimpel-certs/gateway.key ]; do
+          sleep 1
+        done
+        exec /app/gimpel-gateway -config /etc/gimpel/gateway.yaml
     networks:
       - gimpel
 
@@ -70,15 +137,29 @@ services:
     depends_on:
       - master
       - gateway
-    environment:
-      GIMPEL_PAIRING_MODE: "true"
-      GIMPEL_PAIRING_TOKEN: "${GIMPEL_PAIRING_TOKEN}"
+      - bootstrap-init
+    entrypoint: ["/bin/sh", "-ec"]
     volumes:
       - /var/lib/gimpel
       - signing-keys:/keys:ro
       - master-data:/var/lib/gimpel-master:ro
+      - tls-certs:/var/lib/gimpel-certs:ro
+      - pairing-token:/pairing:ro
       - ./config/agent.yaml:/etc/gimpel/agent.yaml:ro
-    command: ["/app/gimpel-agent", "-config", "/etc/gimpel/agent.yaml"]
+    command:
+      - |
+        if [ ! -f /var/lib/gimpel/cert.pem ]; then
+          while [ ! -s /pairing/token ]; do
+            sleep 1
+          done
+          TOKEN=$(cat /pairing/token)
+          if [ -z "$$TOKEN" ]; then
+            echo "missing pairing token" >&2
+            exit 1
+          fi
+          /app/gimpel-agent -config /etc/gimpel/agent.yaml --pair --pair-token "$$TOKEN"
+        fi
+        exec /app/gimpel-agent -config /etc/gimpel/agent.yaml
     networks:
       - gimpel
 
@@ -117,3 +198,5 @@ networks:
 volumes:
   master-data:
   signing-keys:
+  tls-certs:
+  pairing-token:
