@@ -35,6 +35,10 @@ func (r *UserspaceRuntime) Start(ctx context.Context, spec *ModuleSpec) (*Module
 
 	os.Remove(spec.SocketPath)
 
+	if err := os.Chmod(spec.Image, 0755); err != nil {
+		return nil, fmt.Errorf("making module executable: %w", err)
+	}
+
 	procCtx, cancel := context.WithCancel(ctx)
 	cmd := exec.CommandContext(procCtx, spec.Image)
 	cmd.Env = append(os.Environ(),
