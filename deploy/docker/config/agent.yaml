@@ -1,0 +1,27 @@
+agent_id: ""
+data_dir: "/var/lib/gimpel"
+heartbeat_interval: 30s
+pairing_mode: false
+pairing_token: ""
+
+control_plane:
+  address: "master:9090"
+  tls: {}
+
+gateway:
+  address: "gateway:8081"
+  tls: {}
+  flush_interval: 5s
+  batch_size: 100
+  buffer_path: "/var/lib/gimpel/events"
+  max_buffer_bytes: 104857600
+
+runtime:
+  default_execution_mode: "userspace"
+  default_connection_mode: "tcp_relay"
+  enable_privileged: false
+  enable_containerd: false
+  trusted_key_file: "/keys/signing.pub"
+  module_cache_dir: "/var/lib/gimpel/cache"
+
+modules: []

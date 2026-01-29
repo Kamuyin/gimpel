@@ -1,0 +1,5 @@
+listen_address: ":5000"
+public_ip: "sandbox"
+log_level: "info"
+
+tls: {}

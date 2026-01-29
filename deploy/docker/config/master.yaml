@@ -1,0 +1,20 @@
+listen_address: ":9090"
+rest_address: ":8080"
+data_dir: "/var/lib/gimpel-master"
+
+tls: {}
+
+ca:
+  auto_generate: true
+
+registry:
+  stale_timeout: 5m
+  cleanup_interval: 1m
+
+sandbox:
+  nodes:
+    - "sandbox:5000"
+
+module_store:
+  data_dir: "/var/lib/gimpel-master/modules"
+  public_key: "/var/lib/gimpel-master/keys/signing.pub"

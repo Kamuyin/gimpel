@@ -1,0 +1,6 @@
+listen_address: ":8081"
+log_level: "info"
+
+tls: {}
+
+flush_interval: 5s

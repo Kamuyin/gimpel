@@ -1,0 +1,119 @@
+version: "3.9"
+
+services:
+  signing-init:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.tools
+    image: gimpel-tools:dev
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - "test -f /keys/signing.pub || /app/gimpel-sign generate-key --output /keys --name signing"
+    volumes:
+      - signing-keys:/keys
+    restart: "no"
+
+  master:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.master
+    image: gimpel-master:dev
+    depends_on:
+      - signing-init
+    ports:
+      - "9090:9090"
+      - "8080:8080"
+    volumes:
+      - master-data:/var/lib/gimpel-master
+      - signing-keys:/var/lib/gimpel-master/keys
+      - ./config/master.yaml:/etc/gimpel/master.yaml:ro
+    command: ["/app/gimpel-master", "-config", "/etc/gimpel/master.yaml"]
+    networks:
+      - gimpel
+
+  gateway:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.gateway
+    image: gimpel-gateway:dev
+    depends_on:
+      - kafka
+    ports:
+      - "8081:8081"
+    environment:
+      KAFKA_BROKERS: "kafka:9092"
+    volumes:
+      - ./config/gateway.yaml:/etc/gimpel/gateway.yaml:ro
+      - master-data:/var/lib/gimpel-master:ro
+    command: ["/app/gimpel-gateway", "-config", "/etc/gimpel/gateway.yaml"]
+    networks:
+      - gimpel
+
+  sandbox:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.sandbox
+    image: gimpel-sandbox:dev
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./config/sandbox.yaml:/etc/gimpel/sandbox.yaml:ro
+    command: ["/app/gimpel-sandbox", "-config", "/etc/gimpel/sandbox.yaml"]
+    networks:
+      - gimpel
+
+  agent:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.agent
+    image: gimpel-agent:dev
+    depends_on:
+      - master
+      - gateway
+    environment:
+      GIMPEL_PAIRING_MODE: "true"
+      GIMPEL_PAIRING_TOKEN: "${GIMPEL_PAIRING_TOKEN}"
+    volumes:
+      - /var/lib/gimpel
+      - signing-keys:/keys:ro
+      - master-data:/var/lib/gimpel-master:ro
+      - ./config/agent.yaml:/etc/gimpel/agent.yaml:ro
+    command: ["/app/gimpel-agent", "-config", "/etc/gimpel/agent.yaml"]
+    networks:
+      - gimpel
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - gimpel
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    networks:
+      - gimpel
+
+networks:
+  gimpel:
+    driver: bridge
+
+volumes:
+  master-data:
+  signing-keys:
