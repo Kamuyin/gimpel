@@ -301,6 +301,33 @@ paths:
         '500':
           description: Server error
 
+    get:
+      summary: List pairings
+      operationId: listPairings
+      responses:
+        '200':
+          description: List of pairings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListPairingsResponse'
+        '500':
+          description: Server error
+
+  /api/v1/pairings/active:
+    get:
+      summary: List active pairings
+      operationId: listActivePairings
+      responses:
+        '200':
+          description: List of active pairings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListPairingsResponse'
+        '500':
+          description: Server error
+
 components:
   schemas:
     UploadModuleResponse:
@@ -460,6 +487,42 @@ components:
           type: string
         token:
           type: string
+        display_token:
+          type: string
         expires_at:
           type: string
           format: date-time
+        expires_in_seconds:
+          type: integer
+          format: int32
+
+    ListPairingsResponse:
+      type: object
+      properties:
+        pairings:
+          type: array
+          items:
+            $ref: '#/components/schemas/PairingInfo'
+
+    PairingInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        display_token:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        used:
+          type: boolean
+        used_at:
+          type: string
+          format: date-time
+        assigned_agent:
+          type: string
+        agent_hostname:
+          type: string
