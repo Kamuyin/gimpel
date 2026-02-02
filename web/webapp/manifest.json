@@ -51,6 +51,23 @@
                 "settings": {
                     "bundleName": "io.github.kamuyin.gimpel.web.i18n.i18n"
                 }
+            },
+            "api": {
+                "type": "sap.ui.model.json.JSONModel",
+                "dataSource": "gimpelAPI",
+                "preload": false
+            }
+        },
+        "dataSources": {
+            "gimpelAPI": {
+                "uri": "/api/v1/",
+                "type": "JSON",
+                "settings": {
+                    "headers": {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    }
+                }
             }
         },
         "resources": {

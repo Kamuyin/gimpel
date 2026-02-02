@@ -13,6 +13,10 @@ server:
             - /resources
             - /test-resources
           url: https://ui5.sap.com
+        backend:
+          - path: /api
+            url: http://localhost:8080
+            destination: gimpel-master
     - name: fiori-tools-appreload
       afterMiddleware: compression
       configuration:
