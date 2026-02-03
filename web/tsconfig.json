@@ -12,7 +12,7 @@
     "paths": {
       "io/github/kamuyin/gimpel/web/*": ["webapp/*"]
     },
-    "types": []
+    "types": ["@sapui5/types"]
   },
   "include": [
     "webapp/**/*.ts",

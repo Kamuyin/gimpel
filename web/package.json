@@ -23,10 +23,13 @@
 		"int-tests": "fiori run --open \"test/integration/opaTests.qunit.html\""
 	},
 	"devDependencies": {
-	"@ui5/cli": "^4.0.0",
-	"@sap/ux-ui5-tooling": "1",
-	"rimraf": "6.0.1",
-	"typescript": "^5.5.4",
-	"ui5-tooling-transpile": "^3.3.0"
-}
+		"@ui5/cli": "^4.0.0",
+		"@sap/ux-ui5-tooling": "1",
+		"rimraf": "6.0.1",
+		"typescript": "^5.5.4",
+		"ui5-tooling-transpile": "^3.3.0"
+	},
+	"dependencies": {
+		"@sapui5/types": "^1.144.0"
+	}
 }

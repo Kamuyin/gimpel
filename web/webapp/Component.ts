@@ -14,7 +14,7 @@ export default class Component extends BaseComponent {
         ]
 	};
 
-	private apiService: APIService;
+	private apiService!: APIService;
 
 	public init() : void {
 		// call the base component's init function
