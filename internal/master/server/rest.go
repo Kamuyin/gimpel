@@ -54,6 +54,7 @@ func (s *Server) StartRESTServer(address string) error {
 	mux := http.NewServeMux()
 
 	s.RegisterRESTAPIs(mux)
+	s.RegisterWebUI(mux)
 
 	log.WithField("address", address).Info("REST API server starting")
 
