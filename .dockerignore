@@ -1,0 +1,10 @@
+.git
+.vscode
+.idea
+.DS_Store
+**/node_modules
+**/dist
+**/bin
+**/*.db
+**/*.log
+tmp
