@@ -15,8 +15,18 @@ framework:
     - name: sap.ushell
     - name: themelib_sap_bluecrystal
     - name: themelib_sap_horizon
+builder:
+  customTasks:
+    - name: ui5-tooling-transpile-task
+      afterTask: replaceVersion
+      configuration:
+        transpileTypeScript: true
 server:
   customMiddleware:
+    - name: ui5-tooling-transpile-middleware
+      afterMiddleware: compression
+      configuration:
+        transpileTypeScript: true
     - name: fiori-tools-proxy
       afterMiddleware: compression
       configuration:
