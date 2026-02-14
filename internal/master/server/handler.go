@@ -126,8 +126,15 @@ func (h *Handler) GetConfig(ctx context.Context, req *gimpelv1.GetConfigRequest)
 		return &gimpelv1.GetConfigResponse{Updated: false}, nil
 	}
 
+	// TODO: Properly convert deployment modules to ModuleSpec
+	config := &gimpelv1.AgentConfig{
+		Version: fmt.Sprintf("%d", deployment.Version),
+		// Modules: convertModules(deployment.Modules),
+	}
+
 	return &gimpelv1.GetConfigResponse{
 		Updated: true,
+		Config:  config,
 	}, nil
 }
 
@@ -180,7 +187,7 @@ func generateAgentID() (string, error) {
 	if _, err := rand.Read(b); err != nil {
 		return "", err
 	}
-	return "sat-" + hex.EncodeToString(b), nil
+	return "agent-" + hex.EncodeToString(b), nil
 }
 
 func firstIP(ips []string) string {

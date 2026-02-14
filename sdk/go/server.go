@@ -3,6 +3,7 @@ package gimpelsdk
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"os/signal"
@@ -65,7 +66,7 @@ func (s *Server) Run() error {
 	s.dataLn = dataLn
 	s.dataPort = dataLn.Addr().(*net.TCPAddr).Port
 
-	fmt.Printf("Module data port: %d\n", s.dataPort)
+	log.Printf("module data port: %d", s.dataPort)
 
 	s.grpcServer = grpc.NewServer()
 	gimpelv1.RegisterModuleServiceServer(s.grpcServer, &serviceHandler{server: s})

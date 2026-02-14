@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"os"
 	"os/signal"
@@ -35,11 +34,6 @@ func main() {
 		log.WithError(err).Fatal("failed to create server")
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	_ = ctx
-
 	if err := srv.Start(); err != nil {
 		log.WithError(err).Fatal("failed to start server")
 	}
@@ -50,7 +44,6 @@ func main() {
 	sig := <-sigCh
 	log.WithField("signal", sig).Info("received shutdown signal")
 
-	cancel()
 	srv.Stop()
 
 	log.Info("master stopped")

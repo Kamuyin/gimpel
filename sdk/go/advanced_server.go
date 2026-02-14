@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"sync"
@@ -113,7 +114,7 @@ func (s *AdvancedServer) Run() error {
 		}
 		s.dataLn = dataLn
 		s.dataPort = dataLn.Addr().(*net.TCPAddr).Port
-		fmt.Printf("Module data port: %d\n", s.dataPort)
+		log.Printf("module data port: %d", s.dataPort)
 
 		go s.acceptDataConnections()
 	}
@@ -127,7 +128,7 @@ func (s *AdvancedServer) Run() error {
 
 	go func() {
 		if err := s.grpcServer.Serve(controlLn); err != nil {
-			fmt.Printf("gRPC server error: %v\n", err)
+			log.Printf("gRPC server error: %v", err)
 		}
 	}()
 

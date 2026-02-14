@@ -63,7 +63,7 @@ func (m *Manager) CreateSession(sessionID, image string, env map[string]string) 
 		"session_id": sessionID,
 		"image":      image,
 		"port":       port,
-	}).Info("started session (stub)")
+	}).Info("session created")
 
 	return session, nil
 }
@@ -78,7 +78,7 @@ func (m *Manager) StopSession(sessionID string) error {
 
 	delete(m.sessions, sessionID)
 
-	log.WithField("session_id", sessionID).Info("stopped session (stub)")
+	log.WithField("session_id", sessionID).Info("session stopped")
 
 	return nil
 }

@@ -335,15 +335,31 @@ func (a *Agent) fetchConfig(ctx context.Context) error {
 	return nil
 }
 
-func (a *Agent) applyConfig(cfg interface{}) {
-	log.Debug("applying new configuration from control plane")
+func (a *Agent) applyConfig(cfg *gimpelv1.AgentConfig) {
+	if cfg == nil {
+		return
+	}
+
+	log.WithFields(log.Fields{
+		"version": cfg.Version,
+		"modules": len(cfg.Modules),
+	}).Debug("applying new configuration from control plane")
+
+	// TODO: Apply heartbeat interval, event flush interval from config
+	// TODO: Apply module deployment changes
 }
 
 func (a *Agent) collectMetrics() (cpuUsage, memUsage float64) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	memUsage = float64(m.Alloc) / float64(m.Sys)
-	return 0, memUsage
+
+	if m.Sys > 0 {
+		memUsage = (float64(m.Alloc) / float64(m.Sys)) * 100
+	}
+
+	cpuUsage = 0
+
+	return cpuUsage, memUsage
 }
 
 func (a *Agent) syncModules(ctx context.Context) error {

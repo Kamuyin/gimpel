@@ -115,5 +115,6 @@ func generateAgentID() (string, error) {
 }
 
 func discoverPublicIPs() []string {
+	// TODO: Implement proper IP discovery
 	return nil
 }
