@@ -23,21 +23,27 @@ func NewModuleSigner(kp *KeyPair) (*ModuleSigner, error) {
 }
 
 func (s *ModuleSigner) SignModule(module *gimpelv1.ModuleImage) error {
-	signingData := s.computeModuleSigningData(module)
+	manifest := &gimpelv1.ModuleManifest{
+		ModuleId:      module.Id,
+		Version:       module.Version,
+		PayloadSha256: module.Digest,
+		Timestamp:     time.Now().Unix(),
+	}
 
-	signature := s.keyPair.Sign(signingData)
+	manifestBytes, err := proto.Marshal(manifest)
+	if err != nil {
+		return fmt.Errorf("marshaling manifest: %w", err)
+	}
 
+	hash := sha256.Sum256(manifestBytes)
+	signature := s.keyPair.Sign(hash[:])
+
+	module.Manifest = manifestBytes
 	module.Signature = signature
 	module.SignedBy = s.keyPair.KeyID
-	module.SignedAt = time.Now().Unix()
+	module.SignedAt = manifest.Timestamp
 
 	return nil
-}
-
-func (s *ModuleSigner) computeModuleSigningData(module *gimpelv1.ModuleImage) []byte {
-	data := fmt.Sprintf("%s:%s:%s", module.Id, module.Version, module.Digest)
-	hash := sha256.Sum256([]byte(data))
-	return hash[:]
 }
 
 func (s *ModuleSigner) SignCatalog(catalog *gimpelv1.ModuleCatalog) error {
@@ -95,12 +101,28 @@ func (v *ModuleVerifier) VerifyModule(module *gimpelv1.ModuleImage) error {
 		return fmt.Errorf("module is not signed")
 	}
 
+	if module.Manifest == nil {
+		return fmt.Errorf("module manifest is missing")
+	}
+
 	if module.SignedBy == "" {
 		return fmt.Errorf("module has no signer key ID")
 	}
 
-	data := fmt.Sprintf("%s:%s:%s", module.Id, module.Version, module.Digest)
-	hash := sha256.Sum256([]byte(data))
+	var manifest gimpelv1.ModuleManifest
+	if err := proto.Unmarshal(module.Manifest, &manifest); err != nil {
+		return fmt.Errorf("unmarshaling manifest: %w", err)
+	}
+
+	if manifest.ModuleId != module.Id {
+		return fmt.Errorf("manifest module ID mismatch: expected %s, got %s", module.Id, manifest.ModuleId)
+	}
+
+	if manifest.PayloadSha256 != module.Digest {
+		return fmt.Errorf("manifest payload hash mismatch: expected %s, got %s", module.Digest, manifest.PayloadSha256)
+	}
+
+	hash := sha256.Sum256(module.Manifest)
 
 	if err := v.verifier.Verify(hash[:], module.Signature, module.SignedBy); err != nil {
 		return fmt.Errorf("module signature verification failed: %w", err)

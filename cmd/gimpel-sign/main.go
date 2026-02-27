@@ -129,12 +129,13 @@ var signModuleCmd = &cobra.Command{
   "id": "%s",
   "version": "%s",
   "digest": "%s",
+  "manifest": "%x",
   "signature": "%x",
   "signed_by": "%s",
   "signed_at": %d,
   "size_bytes": %d
 }
-`, module.Id, module.Version, module.Digest,
+`, module.Id, module.Version, module.Digest, module.Manifest,
 				module.Signature, module.SignedBy, module.SignedAt, module.SizeBytes)
 
 			if err := os.WriteFile(outputFile, []byte(data), 0644); err != nil {
@@ -155,6 +156,7 @@ var verifyModuleCmd = &cobra.Command{
 		moduleID, _ := cmd.Flags().GetString("id")
 		version, _ := cmd.Flags().GetString("version")
 		imageFile, _ := cmd.Flags().GetString("image")
+		manifestHex, _ := cmd.Flags().GetString("manifest")
 		signatureHex, _ := cmd.Flags().GetString("signature")
 
 		kp, err := signing.LoadPublicKey(keyFile)
@@ -168,6 +170,11 @@ var verifyModuleCmd = &cobra.Command{
 		}
 		digest := signing.ComputeImageDigest(imageData)
 
+		var manifest []byte
+		if _, err := fmt.Sscanf(manifestHex, "%x", &manifest); err != nil {
+			return fmt.Errorf("parsing manifest: %w", err)
+		}
+
 		var signature []byte
 		if _, err := fmt.Sscanf(signatureHex, "%x", &signature); err != nil {
 			return fmt.Errorf("parsing signature: %w", err)
@@ -179,6 +186,7 @@ var verifyModuleCmd = &cobra.Command{
 			Id:        moduleID,
 			Version:   version,
 			Digest:    digest,
+			Manifest:  manifest,
 			Signature: signature,
 			SignedBy:  kp.KeyID,
 		}
@@ -215,11 +223,13 @@ func init() {
 	verifyModuleCmd.Flags().StringP("id", "i", "", "Module ID")
 	verifyModuleCmd.Flags().StringP("version", "v", "", "Module version")
 	verifyModuleCmd.Flags().String("image", "", "Path to module image file")
+	verifyModuleCmd.Flags().String("manifest", "", "Manifest in hex format")
 	verifyModuleCmd.Flags().String("signature", "", "Signature in hex format")
 	verifyModuleCmd.MarkFlagRequired("key")
 	verifyModuleCmd.MarkFlagRequired("id")
 	verifyModuleCmd.MarkFlagRequired("version")
 	verifyModuleCmd.MarkFlagRequired("image")
+	verifyModuleCmd.MarkFlagRequired("manifest")
 	verifyModuleCmd.MarkFlagRequired("signature")
 
 	rootCmd.AddCommand(generateKeyCmd)
