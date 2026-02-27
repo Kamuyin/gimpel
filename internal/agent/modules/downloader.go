@@ -11,6 +11,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/proto"
 
 	gimpelv1 "gimpel/api/go/v1"
 	"gimpel/internal/agent/store"
@@ -122,6 +123,7 @@ func (md *ModuleDownloader) DownloadModule(ctx context.Context, moduleID, versio
 		Id:        moduleID,
 		Version:   version,
 		Digest:    digest,
+		Manifest:  verifyResp.Manifest,
 		Signature: verifyResp.Signature,
 		SignedBy:  verifyResp.SignedBy,
 		SignedAt:  verifyResp.SignedAt,
@@ -129,12 +131,38 @@ func (md *ModuleDownloader) DownloadModule(ctx context.Context, moduleID, versio
 
 	if err := md.verifier.VerifyModule(moduleImage); err != nil {
 		os.Remove(tempPath)
-		return nil, fmt.Errorf("signature verification failed: %w", err)
+		return nil, fmt.Errorf("strict signature and context verification failed: %w", err)
+	}
+
+	var manifest gimpelv1.ModuleManifest
+	if err := proto.Unmarshal(verifyResp.Manifest, &manifest); err != nil {
+		os.Remove(tempPath)
+		return nil, fmt.Errorf("parsing manifest: %w", err)
+	}
+
+	hwm, err := md.store.GetModuleHighWaterMark(moduleID)
+	if err != nil {
+		os.Remove(tempPath)
+		return nil, fmt.Errorf("getting high water mark: %w", err)
+	}
+
+	if hwm != nil && manifest.Timestamp < hwm.Timestamp {
+		os.Remove(tempPath)
+		return nil, fmt.Errorf("anti-downgrade check failed: module %s version %s (timestamp %d) is older than high-water mark timestamp %d", moduleID, version, manifest.Timestamp, hwm.Timestamp)
 	}
 
 	if err := os.Rename(tempPath, finalPath); err != nil {
 		os.Remove(tempPath)
 		return nil, fmt.Errorf("moving to final location: %w", err)
+	}
+
+	newHWM := &store.HighWaterMark{
+		ModuleID:  moduleID,
+		Version:   version,
+		Timestamp: manifest.Timestamp,
+	}
+	if err := md.store.SetModuleHighWaterMark(newHWM); err != nil {
+		return nil, fmt.Errorf("setting high water mark: %w", err)
 	}
 
 	cache := &store.ModuleCache{

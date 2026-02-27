@@ -4,12 +4,36 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"gimpel/pkg/storage"
 )
 
 func ModuleKey(id, version string) string {
 	return fmt.Sprintf("%s:%s", id, version)
+}
+
+type HighWaterMark struct {
+	ModuleID  string    `json:"module_id"`
+	Version   string    `json:"version"`
+	Timestamp int64     `json:"timestamp"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+func (s *Store) GetModuleHighWaterMark(moduleID string) (*HighWaterMark, error) {
+	var hwm HighWaterMark
+	if err := s.db.GetJSON(BucketHighWaterMarks, moduleID, &hwm); err != nil {
+		if err == storage.ErrNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &hwm, nil
+}
+
+func (s *Store) SetModuleHighWaterMark(hwm *HighWaterMark) error {
+	hwm.UpdatedAt = time.Now()
+	return s.db.PutJSON(BucketHighWaterMarks, hwm.ModuleID, hwm)
 }
 
 func (s *Store) SaveModuleCache(mod *ModuleCache) error {

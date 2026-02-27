@@ -15,6 +15,7 @@ const (
 	BucketEvents     = "events"
 	BucketConfig     = "config"
 	BucketState      = "state"
+	BucketHighWaterMarks = "high_water_marks"
 )
 
 type Store struct {
@@ -35,6 +36,7 @@ func New(cfg *Config) (*Store, error) {
 		BucketEvents,
 		BucketConfig,
 		BucketState,
+		BucketHighWaterMarks,
 	}
 
 	db, err := storage.Open(opts)

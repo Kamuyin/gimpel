@@ -52,15 +52,26 @@ type Store interface {
 	SaveModuleCache(*store.ModuleCache) error
 	GetDeploymentConfig() (*store.DeploymentConfig, error)
 	SaveDeploymentConfig(*store.DeploymentConfig) error
+	GetModuleHighWaterMark(moduleID string) (*store.HighWaterMark, error)
+	SetModuleHighWaterMark(*store.HighWaterMark) error
 }
 
-func NewCatalogSyncer(cfg *config.AgentConfig, agentID string, s Store, trustedKeyPath string) (*CatalogSyncer, error) {
-	keyPair, err := signing.LoadPublicKey(trustedKeyPath)
-	if err != nil {
-		return nil, fmt.Errorf("loading trusted key: %w", err)
+func NewCatalogSyncer(cfg *config.AgentConfig, agentID string, s Store, trustedKeys ...string) (*CatalogSyncer, error) {
+	var keyPairs []*signing.KeyPair
+	for _, tk := range trustedKeys {
+		kp, err := signing.LoadPublicKey(tk)
+		if err != nil {
+			log.WithError(err).Warnf("failed to load trusted key: %s", tk)
+			continue
+		}
+		keyPairs = append(keyPairs, kp)
 	}
 
-	verifier := signing.NewModuleVerifier(keyPair)
+	if len(keyPairs) == 0 {
+		return nil, fmt.Errorf("no valid trusted keys loaded")
+	}
+
+	verifier := signing.NewModuleVerifier(keyPairs...)
 
 	cs := &CatalogSyncer{
 		cfg:      cfg,
