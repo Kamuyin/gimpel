@@ -99,6 +99,7 @@ type Module struct {
 	ImageRef    string            `json:"image_ref"`
 	SizeBytes   int64             `json:"size_bytes"`
 	Labels      map[string]string `json:"labels"`
+	Manifest    []byte            `json:"manifest"`
 	Signature   []byte            `json:"signature"`
 	SignedBy    string            `json:"signed_by"`
 	SignedAt    time.Time         `json:"signed_at"`

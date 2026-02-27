@@ -17,7 +17,6 @@ import (
 	"gimpel/internal/master/config"
 	"gimpel/internal/master/session"
 	"gimpel/internal/master/store"
-	"gimpel/pkg/signing"
 )
 
 type Server struct {
@@ -29,9 +28,6 @@ type Server struct {
 	Store      *store.Store
 	CA         *ca.CA
 	SessionMgr *session.SessionManager
-	Verifier   *signing.ModuleVerifier
-	ModuleKey  *signing.KeyPair
-	ModuleKeyPEM []byte
 }
 
 func New(cfg *config.MasterConfig) (*Server, error) {
@@ -39,24 +35,6 @@ func New(cfg *config.MasterConfig) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("initializing CA: %w", err)
 	}
-
-	var moduleKey *signing.KeyPair
-	var moduleKeyPEM []byte
-	if cfg.ModuleStore.PublicKeyFile == "" {
-		return nil, fmt.Errorf("module_store.public_key is required")
-	}
-	keyPair, err := signing.LoadPublicKey(cfg.ModuleStore.PublicKeyFile)
-	if err != nil {
-		return nil, fmt.Errorf("loading module public key: %w (use 'gimpel-sign generate-key' to create a key pair)", err)
-	}
-
-	pemBytes, err := os.ReadFile(cfg.ModuleStore.PublicKeyFile)
-	if err != nil {
-		return nil, fmt.Errorf("reading module public key: %w", err)
-	}
-	moduleKey = keyPair
-	moduleKeyPEM = pemBytes
-	log.WithField("key_id", keyPair.KeyID).Info("module signing public key loaded")
 
 	masterStore, err := store.New(&store.Config{
 		DBPath:   filepath.Join(cfg.DataDir, "master.db"),
@@ -66,16 +44,11 @@ func New(cfg *config.MasterConfig) (*Server, error) {
 		return nil, fmt.Errorf("initializing store: %w", err)
 	}
 
-	verifier := signing.NewModuleVerifier(moduleKey)
-	
 	s := &Server{
 		cfg:        cfg,
 		CA:         caInstance,
 		SessionMgr: session.NewSessionManager(&cfg.Sandbox),
 		Store:      masterStore,
-		Verifier:   verifier,
-		ModuleKey:  moduleKey,
-		ModuleKeyPEM: moduleKeyPEM,
 	}
 
 	return s, nil

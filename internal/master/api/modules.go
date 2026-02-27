@@ -10,22 +10,16 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	gimpelv1 "gimpel/api/go/v1"
 	"gimpel/internal/master/store"
-	"gimpel/pkg/signing"
 )
 
 type ModuleAPI struct {
 	store  *store.Store
-	verifier *signing.ModuleVerifier
-	keyPair  *signing.KeyPair
 }
 
-func NewModuleAPI(s *store.Store, verifier *signing.ModuleVerifier, keyPair *signing.KeyPair) *ModuleAPI {
+func NewModuleAPI(s *store.Store) *ModuleAPI {
 	return &ModuleAPI{
 		store:    s,
-		verifier: verifier,
-		keyPair:  keyPair,
 	}
 }
 
@@ -36,7 +30,9 @@ type UploadModuleRequest struct {
 	Version     string `json:"version"`
 	Protocol    string `json:"protocol"`
 	Labels      map[string]string `json:"labels,omitempty"`
+	Manifest    string `json:"manifest"`
 	Signature   string `json:"signature"`
+	SignedBy    string `json:"signed_by,omitempty"`
 	SignedAt    int64  `json:"signed_at,omitempty"`
 }
 
@@ -44,6 +40,7 @@ type UploadModuleResponse struct {
 	ID        string    `json:"id"`
 	Version   string    `json:"version"`
 	Digest    string    `json:"digest"`
+	Manifest  string    `json:"manifest,omitempty"`
 	Signature string    `json:"signature,omitempty"`
 	SignedBy  string    `json:"signed_by,omitempty"`
 	SignedAt  int64     `json:"signed_at,omitempty"`
@@ -67,11 +64,13 @@ func (ma *ModuleAPI) HandleUploadModule(w http.ResponseWriter, r *http.Request) 
 	description := r.FormValue("description")
 	version := r.FormValue("version")
 	protocol := r.FormValue("protocol")
+	manifestB64 := r.FormValue("manifest")
 	signatureHex := r.FormValue("signature")
+	signedBy := r.FormValue("signed_by")
 	signedAtStr := r.FormValue("signed_at")
 
-	if id == "" || version == "" || signatureHex == "" {
-		http.Error(w, "id, version, and signature are required", http.StatusBadRequest)
+	if id == "" || version == "" || signatureHex == "" || manifestB64 == "" {
+		http.Error(w, "id, version, manifest, and signature are required", http.StatusBadRequest)
 		return
 	}
 
@@ -116,32 +115,21 @@ func (ma *ModuleAPI) HandleUploadModule(w http.ResponseWriter, r *http.Request) 
 		UpdatedAt:   time.Now(),
 	}
 
-	if ma.verifier == nil || ma.keyPair == nil {
-		http.Error(w, "module signature verification is not configured", http.StatusInternalServerError)
-		return
-	}
-
 	signature, err := hex.DecodeString(signatureHex)
 	if err != nil {
 		http.Error(w, "invalid signature encoding", http.StatusBadRequest)
 		return
 	}
 
-	moduleImage := &gimpelv1.ModuleImage{
-		Id:        id,
-		Version:   version,
-		Digest:    imageMeta.Digest,
-		Signature: signature,
-		SignedBy:  ma.keyPair.KeyID,
-		SignedAt:  signedAt,
-	}
-	if err := ma.verifier.VerifyModule(moduleImage); err != nil {
-		http.Error(w, fmt.Sprintf("signature verification failed: %v", err), http.StatusBadRequest)
+	manifestBytes, err := hex.DecodeString(manifestB64)
+	if err != nil {
+		http.Error(w, "invalid manifest encoding", http.StatusBadRequest)
 		return
 	}
 
+	module.Manifest = manifestBytes
 	module.Signature = signature
-	module.SignedBy = ma.keyPair.KeyID
+	module.SignedBy = signedBy
 	if signedAt > 0 {
 		module.SignedAt = time.Unix(signedAt, 0)
 	}
@@ -155,6 +143,7 @@ func (ma *ModuleAPI) HandleUploadModule(w http.ResponseWriter, r *http.Request) 
 		ID:        module.ID,
 		Version:   module.Version,
 		Digest:    module.Digest,
+		Manifest:  fmt.Sprintf("%x", module.Manifest),
 		Signature: fmt.Sprintf("%x", module.Signature),
 		SignedBy:  module.SignedBy,
 		SignedAt:  module.SignedAt.Unix(),

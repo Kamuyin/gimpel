@@ -45,6 +45,7 @@ func (h *ModuleCatalogHandler) GetCatalog(ctx context.Context, req *gimpelv1.Get
 			Id:        mod.ID,
 			Version:   mod.Version,
 			Digest:    mod.Digest,
+			Manifest:  mod.Manifest,
 			Signature: mod.Signature,
 			SignedBy:  mod.SignedBy,
 			SignedAt:  mod.SignedAt.Unix(),
@@ -173,12 +174,15 @@ func (h *ModuleCatalogHandler) VerifyModule(ctx context.Context, req *gimpelv1.V
 
 	mod, _ := h.store.GetModule(req.ModuleId, req.Version)
 	var sig []byte
+	var manifest []byte
 	if mod != nil {
 		sig = mod.Signature
+		manifest = mod.Manifest
 	}
 
 	resp := &gimpelv1.VerifyModuleResponse{
 		Valid:     true,
+		Manifest:  manifest,
 		Signature: sig,
 	}
 	

@@ -9,7 +9,7 @@ import (
 )
 
 func (s *Server) RegisterRESTAPIs(mux *http.ServeMux) {
-	moduleAPI := api.NewModuleAPI(s.Store, s.Verifier, s.ModuleKey)
+	moduleAPI := api.NewModuleAPI(s.Store)
 	deploymentAPI := api.NewDeploymentAPI(s.Store)
 	pairingAPI := api.NewPairingAPI(s.Store)
 

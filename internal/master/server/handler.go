@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"os"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -94,14 +93,6 @@ func (h *Handler) Register(ctx context.Context, req *gimpelv1.RegisterRequest) (
 	}
 
 	caBundle := h.ca.CACertPEM()
-	if h.cfg.ModuleStore.PublicKeyFile != "" {
-		if pubKey, err := os.ReadFile(h.cfg.ModuleStore.PublicKeyFile); err == nil {
-			if len(caBundle) > 0 && caBundle[len(caBundle)-1] != '\n' {
-				caBundle = append(caBundle, '\n')
-			}
-			caBundle = append(caBundle, pubKey...)
-		}
-	}
 
 	return &gimpelv1.RegisterResponse{
 		AgentId:       agentID,
