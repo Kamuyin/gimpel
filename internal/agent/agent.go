@@ -20,6 +20,7 @@ import (
 	"gimpel/internal/agent/store"
 	"gimpel/internal/agent/telemetry"
 	"gimpel/pkg/signing"
+	gimpelv1 "gimpel/api/go/v1"
 )
 
 type Agent struct {
