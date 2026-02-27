@@ -87,9 +87,9 @@ type RuntimeConfig struct {
 	EnablePrivileged      bool   `mapstructure:"enable_privileged"`
 	EnableContainerd      bool   `mapstructure:"enable_containerd"`
 	ContainerdAddress     string `mapstructure:"containerd_address"`
-	ContainerdNamespace   string `mapstructure:"containerd_namespace"`
-	TrustedKeyFile        string `mapstructure:"trusted_key_file"`
-	ModuleCacheDir        string `mapstructure:"module_cache_dir"`
+	ContainerdNamespace   string   `mapstructure:"containerd_namespace"`
+	TrustedKeys           []string `mapstructure:"trusted_keys"`
+	ModuleCacheDir        string   `mapstructure:"module_cache_dir"`
 }
 
 type AgentConfig struct {
@@ -133,8 +133,8 @@ func (c *AgentConfig) Validate() error {
 	if c.PairingMode && c.PairingToken == "" {
 		return fmt.Errorf("pairing_token is required when pairing_mode is enabled")
 	}
-	if c.Runtime.TrustedKeyFile == "" {
-		c.Runtime.TrustedKeyFile = c.DataDir + "/module-signing.pub"
+	if len(c.Runtime.TrustedKeys) == 0 {
+		c.Runtime.TrustedKeys = []string{c.DataDir + "/module-signing.pub"}
 	}
 
 	for i := range c.Modules {

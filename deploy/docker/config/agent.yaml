@@ -23,7 +23,8 @@ runtime:
   default_connection_mode: "tcp_relay"
   enable_privileged: false
   enable_containerd: false
-  trusted_key_file: "/keys/signing.pub"
+  trusted_keys:
+    - "/keys/signing.pub"
   module_cache_dir: "/var/lib/gimpel/cache"
 
 modules: []

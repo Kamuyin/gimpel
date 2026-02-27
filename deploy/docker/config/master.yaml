@@ -21,4 +21,3 @@ sandbox:
 
 module_store:
   data_dir: "/var/lib/gimpel-master/modules"
-  public_key: "/var/lib/gimpel-master/keys/signing.pub"

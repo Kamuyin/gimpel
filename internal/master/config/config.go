@@ -36,7 +36,6 @@ type SandboxConfig struct {
 
 type ModuleStoreConfig struct {
 	DataDir        string `mapstructure:"data_dir"`
-	PublicKeyFile  string `mapstructure:"public_key"`
 }
 
 type MasterConfig struct {
@@ -82,9 +81,6 @@ func (c *MasterConfig) Validate() error {
 
 	if c.ModuleStore.DataDir == "" {
 		c.ModuleStore.DataDir = c.DataDir + "/modules"
-	}
-	if c.ModuleStore.PublicKeyFile == "" {
-		c.ModuleStore.PublicKeyFile = c.DataDir + "/signing.pub"
 	}
 
 	return nil
