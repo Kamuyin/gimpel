@@ -39,6 +39,13 @@ service ModuleService {
 
 // Module Catalog & Distribution (Master -> Agent)
 
+message ModuleManifest {
+  string module_id = 1;
+  string version = 2;
+  string payload_sha256 = 3;
+  int64 timestamp = 4;
+}
+
 // ModuleImage represents a signed, deployable honeypot module
 message ModuleImage {
   string id = 1; 
@@ -47,28 +54,29 @@ message ModuleImage {
   string description = 4;
   
   string image_ref = 5; // OCI image reference
-  string digest = 6; // SHA256
+  string digest = 6; // SHA256 of the image payload
   int64 size_bytes = 7;
   
-  bytes signature = 8; // Ed25519
-  string signed_by = 9; // Key ID
-  int64 signed_at = 10;
+  bytes manifest = 8; // Serialized ModuleManifest
+  bytes signature = 9; // Ed25519 signature of the manifest
+  string signed_by = 10; // Key ID
+  int64 signed_at = 11;
   
   // Runtime requirements
-  repeated string required_capabilities = 11; // Linux capabilities (e.g., "NET_BIND_SERVICE")
-  bool requires_privileged = 12; // Needs privileged container
-  string min_agent_version = 13; // Minimum agent version required
+  repeated string required_capabilities = 12; // Linux capabilities (e.g., "NET_BIND_SERVICE")
+  bool requires_privileged = 13; // Needs privileged container
+  string min_agent_version = 14; // Minimum agent version required
   
   // Protocol support
-  repeated ModuleProtocol protocols = 14;
+  repeated ModuleProtocol protocols = 15;
   
   // Resource recommendations
-  ResourceRequirements resources = 15;
+  ResourceRequirements resources = 16;
   
   // Metadata
-  map<string, string> labels = 16;
-  int64 created_at = 17;
-  int64 updated_at = 18;
+  map<string, string> labels = 17;
+  int64 created_at = 18;
+  int64 updated_at = 19;
 }
 
 // ModuleProtocol describes a protocol the module supports
@@ -169,9 +177,10 @@ message VerifyModuleRequest {
 
 message VerifyModuleResponse {
   bool valid = 1; // True if digest matches
-  bytes signature = 2; // Module signature for verification
-  string signed_by = 3; // Key ID that signed this module
-  int64 signed_at = 4; // Unix timestamp when signed
+  bytes manifest = 2; // Serialized ModuleManifest
+  bytes signature = 3; // Module signature for verification
+  string signed_by = 4; // Key ID that signed this module
+  int64 signed_at = 5; // Unix timestamp when signed
 }
 
 // ModuleCatalogService For module catalog consumption
