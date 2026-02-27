@@ -20,11 +20,6 @@ func main() {
 	standaloneMode := os.Getenv("GIMPEL_SOCKET") == ""
 
 	module := NewSSHHoneypot()
-	ctx := gimpelsdk.NewModuleContext("ssh-honeypot", "")
-
-	if err := module.Init(ctx); err != nil {
-		log.Fatalf("Init error: %v", err)
-	}
 
 	if standaloneMode {
 		log.Printf("Running in STANDALONE mode on port %s", port)
